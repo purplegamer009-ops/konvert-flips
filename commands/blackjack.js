@@ -12,44 +12,65 @@ function total(h) {
   while(t>21&&a--) t-=10; return t;
 }
 
-async function playHand(channel, userId) {
+async function playHandDM(client, user, channel) {
   let hand = [card(), card()];
+  const dm = await user.createDM();
+
   if (total(hand) === 21) {
-    await channel.send({ embeds: [em('Konvert Flips\' Blackjack', `<@${userId}>\n🃏  **${show(hand)}**\n\n🎉  **BLACKJACK!**`)] });
+    await dm.send({ embeds: [em('Konvert Flips\' Blackjack', '🃏  **' + show(hand) + '**\n\n🎉  BLACKJACK!')] });
+    await channel.send({ embeds: [em('Konvert Flips\' Blackjack', '<@' + user.id + '> got their cards in DMs ✅')] });
     return { total: 21, blackjack: true };
   }
-  await channel.send({ embeds: [em('Konvert Flips\' Blackjack',
-    `<@${userId}>'s turn\n🃏  **${show(hand)}**  =  **${total(hand)}**\n\nType \`hit\` or \`stand\` in chat`
+
+  await dm.send({ embeds: [em('Konvert Flips\' Blackjack',
+    'Your hand:\n🃏  **' + show(hand) + '**  =  **' + total(hand) + '**\n\nType `hit` or `stand`'
   )] });
+  await channel.send({ embeds: [em('Konvert Flips\' Blackjack', '<@' + user.id + '> is playing in DMs — check your DMs!')] });
+
   while (true) {
-    let move;
-    try {
-      const collected = await channel.awaitMessages({
-        filter: m => m.author.id === userId && ['hit','stand'].includes(m.content.toLowerCase().trim()),
-        max: 1, time: 60_000, errors: ['time'],
-      });
-      move = collected.first().content.toLowerCase().trim();
-      await collected.first().delete().catch(() => {});
-    } catch {
-      await channel.send({ embeds: [em('Konvert Flips\' Blackjack', `⏰  <@${userId}> timed out — standing on **${total(hand)}**`)] });
+    let move = null;
+    await new Promise(resolve => {
+      const timeout = setTimeout(() => {
+        client.off('messageCreate', handler);
+        resolve();
+      }, 60000);
+
+      function handler(msg) {
+        if (msg.author.id !== user.id) return;
+        if (msg.guild) return;
+        if (!['hit','stand'].includes(msg.content.toLowerCase().trim())) return;
+        clearTimeout(timeout);
+        client.off('messageCreate', handler);
+        move = msg.content.toLowerCase().trim();
+        resolve();
+      }
+      client.on('messageCreate', handler);
+    });
+
+    if (!move) {
+      await dm.send({ embeds: [em('Konvert Flips\' Blackjack', '⏰  Timed out — standing on **' + total(hand) + '**')] });
       return { total: total(hand) };
     }
+
     if (move === 'stand') {
-      await channel.send({ embeds: [em('Konvert Flips\' Blackjack', `<@${userId}>\n🃏  **${show(hand)}**  =  **${total(hand)}**\n\n✋  Standing`)] });
+      await dm.send({ embeds: [em('Konvert Flips\' Blackjack', '✋  Standing on **' + total(hand) + '**')] });
       return { total: total(hand) };
     }
+
     hand.push(card());
     const t = total(hand);
+
     if (t > 21) {
-      await channel.send({ embeds: [em('Konvert Flips\' Blackjack', `<@${userId}>\n🃏  **${show(hand)}**  =  **${t}**\n\n💥  **BUST**`)] });
+      await dm.send({ embeds: [em('Konvert Flips\' Blackjack', '🃏  **' + show(hand) + '**  =  **' + t + '**\n\n💥  BUST!')] });
       return { total: t, bust: true };
     }
     if (t === 21) {
-      await channel.send({ embeds: [em('Konvert Flips\' Blackjack', `<@${userId}>\n🃏  **${show(hand)}**  =  **21**\n\n✅  Standing on 21`)] });
+      await dm.send({ embeds: [em('Konvert Flips\' Blackjack', '🃏  **' + show(hand) + '**  =  **21**\n\n✅  Standing on 21')] });
       return { total: 21 };
     }
-    await channel.send({ embeds: [em('Konvert Flips\' Blackjack',
-      `<@${userId}>'s turn\n🃏  **${show(hand)}**  =  **${t}**\n\nType \`hit\` or \`stand\``
+
+    await dm.send({ embeds: [em('Konvert Flips\' Blackjack',
+      'Your hand:\n🃏  **' + show(hand) + '**  =  **' + t + '**\n\nType `hit` or `stand`'
     )] });
   }
 }
@@ -57,7 +78,7 @@ async function playHand(channel, userId) {
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('blackjack')
-    .setDescription('🃏  1v1 Blackjack — type hit or stand!')
+    .setDescription('🃏  1v1 Blackjack — played privately in DMs!')
     .addUserOption(o => o.setName('opponent').setDescription('Who to challenge?').setRequired(true)),
 
   async execute(interaction, client) {
@@ -65,47 +86,50 @@ module.exports = {
     if (opponent.id === interaction.user.id) return interaction.reply({ content: '🚫  You cannot play yourself.', ephemeral: true });
     if (opponent.bot) return interaction.reply({ content: '🚫  Cannot play against a bot.', ephemeral: true });
 
-    await interaction.deferReply();
-    await interaction.editReply({ embeds: [em('Konvert Flips\' Blackjack',
-      `<@${interaction.user.id}> challenged <@${opponent.id}> to **1v1 Blackjack!**\n\n<@${opponent.id}> — type \`accept\` or \`decline\` in chat`
+    await interaction.reply({ embeds: [em('Konvert Flips\' Blackjack',
+      '<@' + interaction.user.id + '> challenged <@' + opponent.id + '> to **1v1 Blackjack!**\n\n<@' + opponent.id + '> — type `accept` or `decline` in chat'
     )] });
 
     let accepted = false;
     try {
-      const collected = await interaction.channel.awaitMessages({
+      const col = await interaction.channel.awaitMessages({
         filter: m => m.author.id === opponent.id && ['accept','decline'].includes(m.content.toLowerCase().trim()),
-        max: 1, time: 30_000, errors: ['time'],
+        max: 1, time: 30000, errors: ['time'],
       });
-      accepted = collected.first().content.toLowerCase().trim() === 'accept';
-      await collected.first().delete().catch(() => {});
+      accepted = col.first().content.toLowerCase().trim() === 'accept';
+      await col.first().delete().catch(() => {});
     } catch {
-      return interaction.editReply({ embeds: [em('Konvert Flips\' Blackjack', `⏰  <@${opponent.id}> didn't respond. Cancelled.`)] });
+      return interaction.channel.send({ embeds: [em('Konvert Flips\' Blackjack', '⏰  No response. Game cancelled.')] });
     }
 
-    if (!accepted) return interaction.editReply({ embeds: [em('Konvert Flips\' Blackjack', `❌  <@${opponent.id}> declined.`)] });
+    if (!accepted) return interaction.channel.send({ embeds: [em('Konvert Flips\' Blackjack', '❌  <@' + opponent.id + '> declined.')] });
 
-    await interaction.editReply({ embeds: [em('Konvert Flips\' Blackjack', `🃏  Game on!\n\n<@${interaction.user.id}> goes first — type \`hit\` or \`stand\` in chat`)] });
-    await wait(800);
+    await interaction.channel.send({ embeds: [em('Konvert Flips\' Blackjack',
+      '🃏  Game on! Both players will play in their **DMs** — no peeking!\n\n<@' + interaction.user.id + '> goes first — check your DMs!'
+    )] });
 
-    const r1 = await playHand(interaction.channel, interaction.user.id);
-    await wait(600);
-    await interaction.channel.send({ embeds: [em('Konvert Flips\' Blackjack', `Now <@${opponent.id}>'s turn — type \`hit\` or \`stand\``)] });
     await wait(500);
-    const r2 = await playHand(interaction.channel, opponent.id);
-    await wait(600);
+    const r1 = await playHandDM(client, interaction.user, interaction.channel);
+    await wait(500);
+
+    await interaction.channel.send({ embeds: [em('Konvert Flips\' Blackjack', '<@' + interaction.user.id + '> is done!\n\nNow <@' + opponent.id + '> — check your DMs!')] });
+    const r2 = await playHandDM(client, opponent, interaction.channel);
+    await wait(500);
 
     const t1 = r1.bust ? -1 : r1.total;
     const t2 = r2.bust ? -1 : r2.total;
     let line, winner;
-    if (t1 === t2 || (r1.bust && r2.bust)) { line = '🤝  **TIE**'; }
-    else if (t1 > t2) { winner = interaction.user; line = `🏆  **<@${interaction.user.id}> wins!**`; }
-    else { winner = opponent; line = `🏆  **<@${opponent.id}> wins!**`; }
+
+    if (t1 === t2 || (r1.bust && r2.bust)) { line = '🤝  TIE'; }
+    else if (t1 > t2) { winner = interaction.user; line = '🏆  <@' + interaction.user.id + '> wins!'; }
+    else { winner = opponent; line = '🏆  <@' + opponent.id + '> wins!'; }
 
     await interaction.channel.send({ embeds: [em('Konvert Flips\' Blackjack  —  Result',
-      `<@${interaction.user.id}>  **${r1.bust ? 'BUST' : r1.total}**\n<@${opponent.id}>  **${r2.bust ? 'BUST' : r2.total}**\n\n${line}`
+      '<@' + interaction.user.id + '>  **' + (r1.bust ? 'BUST' : r1.total) + '**\n' +
+      '<@' + opponent.id + '>  **' + (r2.bust ? 'BUST' : r2.total) + '**\n\n' + line
     )] });
 
     await log(client, { user: winner ?? interaction.user, game: '1v1 Blackjack', result: winner ? 'WIN' : 'TIE',
-      detail: `${interaction.user.username}: ${r1.bust?'BUST':r1.total}  vs  ${opponent.username}: ${r2.bust?'BUST':r2.total}` });
+      detail: interaction.user.username + ': ' + (r1.bust?'BUST':r1.total) + '  vs  ' + opponent.username + ': ' + (r2.bust?'BUST':r2.total) });
   },
 };
