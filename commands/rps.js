@@ -19,33 +19,41 @@ module.exports = {
       '<@' + interaction.user.id + '> vs <@' + opponent.id + '>\n\n📩  **Both players check your DMs!**\nType your move there — nobody can see it.'
     )] });
 
-    const picks = {};
+    const valid = ['rock','paper','scissors'];
 
     async function getPick(user) {
       try {
         const dm = await user.createDM();
-        await dm.send({ embeds: [em('Konvert Flips RPS', 'Type your move now:\n`rock`  `paper`  `scissors`')] });
-        const collected = await dm.awaitMessages({
-          filter: m => m.author.id === user.id && ['rock','paper','scissors'].includes(m.content.toLowerCase().trim()),
-          max: 1,
-          time: 30000,
-          errors: ['time'],
-        });
-        picks[user.id] = collected.first().content.toLowerCase().trim();
-        await dm.send({ embeds: [em('Konvert Flips RPS', '✅  Locked in — waiting for opponent...')] });
+        await dm.send({ embeds: [em('Konvert Flips RPS', 'Type your move:\n`rock`  `paper`  `scissors`\n\nYou have 60 seconds.')] });
       } catch {
-        picks[user.id] = null;
+        return null;
       }
+
+      return new Promise(resolve => {
+        const timeout = setTimeout(() => {
+          client.off('messageCreate', handler);
+          resolve(null);
+        }, 60000);
+
+        function handler(msg) {
+          if (msg.author.id !== user.id) return;
+          if (msg.guild) return;
+          if (!valid.includes(msg.content.toLowerCase().trim())) return;
+          clearTimeout(timeout);
+          client.off('messageCreate', handler);
+          msg.author.createDM().then(dm => dm.send({ embeds: [em('Konvert Flips RPS', '✅  Locked in!')] })).catch(() => {});
+          resolve(msg.content.toLowerCase().trim());
+        }
+
+        client.on('messageCreate', handler);
+      });
     }
 
-    await Promise.all([getPick(interaction.user), getPick(opponent)]);
+    const [p1, p2] = await Promise.all([getPick(interaction.user), getPick(opponent)]);
 
-    if (!picks[interaction.user.id] || !picks[opponent.id]) {
+    if (!p1 || !p2) {
       return interaction.channel.send({ embeds: [em('Konvert Flips RPS', '⏰  Someone did not pick in time. Game cancelled.')] });
     }
-
-    const p1 = picks[interaction.user.id];
-    const p2 = picks[opponent.id];
 
     let line, winner;
     if (p1 === p2) { line = '🤝  TIE! Both picked ' + E[p1]; }
