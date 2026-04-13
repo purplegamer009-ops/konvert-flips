@@ -12,8 +12,7 @@ module.exports = {
     const opponent = interaction.options.getUser('opponent');
     if (opponent.id === interaction.user.id) return interaction.reply({ content: '🚫  You cannot play yourself.', ephemeral: true });
     if (opponent.bot) return interaction.reply({ content: '🚫  Cannot play against a bot.', ephemeral: true });
-    await interaction.deferReply();
-    await interaction.editReply({ embeds: [em('Konvert Flips RPS', '<@' + interaction.user.id + '> vs <@' + opponent.id + '>\n\nBoth players type your move:\nrock  paper  scissors\n\n30 seconds each')] });
+    await interaction.reply({ embeds: [em('Konvert Flips RPS', '<@' + interaction.user.id + '> vs <@' + opponent.id + '>\n\nBoth players type your move in chat:\nrock  paper  scissors\n\n30 seconds each')] });
     const picks = {};
     const order = [interaction.user.id, opponent.id];
     for (const userId of order) {
@@ -22,7 +21,7 @@ module.exports = {
         const col = await interaction.channel.awaitMessages({ filter: m => m.author.id === userId && ['rock','paper','scissors'].includes(m.content.toLowerCase().trim()), max: 1, time: 30000, errors: ['time'] });
         picks[userId] = col.first().content.toLowerCase().trim();
         await col.first().delete().catch(() => {});
-        await interaction.channel.send({ embeds: [em('Konvert Flips RPS', '<@' + userId + '> locked in')] });
+        await interaction.channel.send({ embeds: [em('Konvert Flips RPS', '<@' + userId + '> locked in ✅')] });
       } catch {
         return interaction.channel.send({ embeds: [em('Konvert Flips RPS', '<@' + userId + '> did not pick in time. Game cancelled.')] });
       }
