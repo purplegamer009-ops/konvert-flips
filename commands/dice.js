@@ -1,0 +1,42 @@
+const { SlashCommandBuilder } = require('discord.js');
+const { em, wait, rnd } = require('../utils/theme');
+const { log } = require('../utils/logger');
+
+const FACE = ['⚀','⚁','⚂','⚃','⚄','⚅'];
+
+module.exports = {
+  data: new SlashCommandBuilder()
+    .setName('dice')
+    .setDescription('🎲  Roll two dice')
+    .addIntegerOption(o => o.setName('sides').setDescription('Sides per die (default 6)').setMinValue(2).setMaxValue(100)),
+
+  async execute(interaction, client) {
+    const sides = interaction.options.getInteger('sides') ?? 6;
+    await interaction.deferReply();
+
+    await interaction.editReply({ embeds: [em('Konvert Flips\' Dice Roll', '🎲  Rolling...')] });
+    await wait(1000);
+
+    const d1 = rnd(1, sides), d2 = rnd(1, sides);
+    const total = d1 + d2;
+    const f1 = sides === 6 ? FACE[d1-1] : `**${d1}**`;
+    const f2 = sides === 6 ? FACE[d2-1] : `**${d2}**`;
+
+    await interaction.editReply({ embeds: [em(
+      'Konvert Flips\' Dice Roll',
+      `🎲  **${interaction.user.displayName}** rolled **${f1}** & **${f2}**`,
+      [
+        { name: 'Die 1', value: `${d1}`, inline: true },
+        { name: 'Die 2', value: `${d2}`, inline: true },
+        { name: 'Total', value: `${total}`, inline: true },
+      ]
+    )] });
+
+    await log(client, {
+      user: interaction.user,
+      game: 'Dice Roll',
+      result: 'ROLL',
+      detail: `Rolled ${d1} & ${d2}  —  Total: ${total} / ${sides * 2}`,
+    });
+  },
+};
