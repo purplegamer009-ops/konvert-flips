@@ -16,29 +16,44 @@ module.exports = {
     .setDescription('🎟️  Scratch a lottery card'),
 
   async execute(interaction, client) {
-    await interaction.deferReply();
+    const [p1,p2,p3] = [rollPrize(), rollPrize(), rollPrize()];
+    const match = p1.s===p2.s && p2.s===p3.s;
+    const result = match && p1.t>0 ? 'WIN' : 'LOSS';
+
     const row = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId('scratch_go').setLabel('🪙  Scratch!').setStyle(ButtonStyle.Success)
+      new ButtonBuilder()
+        .setCustomId(`scratch_${interaction.id}`)
+        .setLabel('🪙  Scratch!')
+        .setStyle(ButtonStyle.Success)
     );
 
-    await interaction.editReply({ embeds: [em('Konvert Flips\' Scratch Card', '🂠  🂠  🂠\n\nPress **Scratch!** to reveal')], components: [row] });
-    const msg = await interaction.fetchReply();
+    await interaction.reply({
+      embeds: [em('Konvert Flips\' Scratch Card', '🂠  🂠  🂠\n\nPress **Scratch!** to reveal')],
+      components: [row],
+      fetchReply: true,
+    });
 
-    const col = msg.createMessageComponentCollector({ filter:b=>b.user.id===interaction.user.id, time:30_000, max:1 });
-
-    col.on('collect', async btn => {
+    const filter = b => b.customId === `scratch_${interaction.id}` && b.user.id === interaction.user.id;
+    
+    try {
+      const btn = await interaction.channel.awaitMessageComponent({ filter, time: 30_000 });
       await btn.deferUpdate();
-      await msg.edit({ embeds: [em('Konvert Flips\' Scratch Card', '✨  ✨  ✨\n\nRevealing...')], components: [] });
+      
+      await interaction.editReply({
+        embeds: [em('Konvert Flips\' Scratch Card', '✨  ✨  ✨\n\nRevealing...')],
+        components: [],
+      });
       await wait(900);
 
-      const [p1,p2,p3] = [rollPrize(),rollPrize(),rollPrize()];
-      const match = p1.s===p2.s && p2.s===p3.s;
-      const result = match && p1.t>0 ? 'WIN' : 'LOSS';
-
-      await msg.edit({ embeds: [em(
-        'Konvert Flips\' Scratch Card',
-        `${p1.s}  ${p2.s}  ${p3.s}\n\n${match && p1.t>0 ? `🏆  **${interaction.user.displayName}** matched **${p1.s} ${p1.s} ${p1.s}**!` : '❌  No match'}`
-      )] });
+      await interaction.editReply({
+        embeds: [em(
+          'Konvert Flips\' Scratch Card',
+          `${p1.s}  ${p2.s}  ${p3.s}\n\n${match && p1.t>0
+            ? `🏆  **${interaction.user.displayName}** matched **${p1.s} ${p1.s} ${p1.s}**!`
+            : '❌  No match'}`
+        )],
+        components: [],
+      });
 
       await log(client, {
         user: interaction.user,
@@ -46,10 +61,12 @@ module.exports = {
         result,
         detail: `${p1.s} ${p2.s} ${p3.s}  —  ${match ? 'Triple match' : 'No match'}`,
       });
-    });
 
-    col.on('end', async (_,r) => {
-      if(r==='time') await msg.edit({ embeds:[em('Konvert Flips\' Scratch Card','⏰  Expired')], components:[] }).catch(()=>{});
-    });
+    } catch {
+      await interaction.editReply({
+        embeds: [em('Konvert Flips\' Scratch Card', '⏰  Expired — use `/scratch` for a new card')],
+        components: [],
+      }).catch(()=>{});
+    }
   },
 };
