@@ -11,15 +11,14 @@ function roll() {
   return hmacFloat2(1, 2);
 }
 module.exports = {
-  data: new SlashCommandBuilder()
-    .setName('limbo')
-    .setDescription('🚀  Launch into Limbo'),
+  data: new SlashCommandBuilder().setName('limbo').setDescription('🚀  Launch into Limbo'),
   async execute(interaction, client) {
     await interaction.deferReply();
-    await interaction.editReply({ embeds: [em('Konvert Flips\' Limbo', '🚀  Launching...')] });
-    await wait(1200);
+    for (const frame of ['`[░░░░░░░░░░]`','`[████░░░░░░]`','`[████████░░]`','`[██████████]`']) {
+      await interaction.editReply({ embeds: [em('Konvert Flips\' Limbo', '🚀  Launching...\n' + frame)] }); await wait(300);
+    }
     const m = roll();
-    await interaction.editReply({ embeds: [em('Konvert Flips\' Limbo', '🚀  **' + interaction.user.displayName + '** landed on **' + m + 'x**')] });
+    await interaction.editReply({ embeds: [em('Konvert Flips\' Limbo', '**' + interaction.user.displayName + '** landed on **' + m + 'x**')] });
     await log(client, { user: interaction.user, game: 'Limbo', result: m >= 2 ? 'WIN' : 'LOSS', detail: m + 'x' });
   },
 };
