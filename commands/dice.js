@@ -8,15 +8,11 @@ module.exports = {
   async execute(interaction, client) {
     const sides = interaction.options.getInteger('sides') ?? 6;
     await interaction.deferReply();
-    for (const frame of ['`[░░░░░░░░░░]`','`[████░░░░░░]`','`[████████░░]`','`[██████████]`']) {
-      await interaction.editReply({ embeds: [em('Konvert Flips\' Dice Roll', '🎲  Rolling...\n' + frame)] }); await wait(300);
-    }
+    await interaction.editReply({ embeds: [em('Konvert Flips\' Dice Roll', '🎲  Rolling...')] });
+    await wait(1000);
     const d1 = hmacRoll(1, sides), d2 = hmacRoll(1, sides);
     const f1 = sides === 6 ? FACE[d1-1] : d1, f2 = sides === 6 ? FACE[d2-1] : d2;
-    await interaction.editReply({ embeds: [em('Konvert Flips\' Dice Roll',
-      '**' + interaction.user.displayName + '** rolled **' + f1 + '** & **' + f2 + '**',
-      [{ name: 'Die 1', value: '`' + d1 + '`', inline: true },{ name: 'Die 2', value: '`' + d2 + '`', inline: true },{ name: 'Total', value: '`' + (d1+d2) + '`', inline: true }]
-    )] });
-    await log(client, { user: interaction.user, game: 'Dice', result: 'ROLL', detail: d1 + ' & ' + d2 + ' = ' + (d1+d2) });
+    await interaction.editReply({ embeds: [em('Konvert Flips\' Dice Roll', '**' + interaction.user.displayName + '** rolled **' + f1 + '** & **' + f2 + '**')] });
+    await log(client, { user: interaction.user, game: 'Dice', result: 'ROLL', detail: d1 + ' & ' + d2 });
   },
 };
