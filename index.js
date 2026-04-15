@@ -49,7 +49,6 @@ client.on('interactionCreate', async i => {
 });
 
 const { hmacRoll, em } = require('./utils/theme');
-const { log } = require('./utils/logger');
 const FACE = ['⚀','⚁','⚂','⚃','⚄','⚅'];
 
 client.on('messageCreate', async msg => {
@@ -64,7 +63,6 @@ client.on('messageCreate', async msg => {
       'Konvert Flips\' Dice Roll',
       '**' + msg.author.displayName + '** rolled **' + FACE[d1-1] + '** & **' + FACE[d2-1] + '**\n\nTotal: **' + (d1+d2) + '**'
     )] });
-    await log(client, { user: msg.author, game: 'Dice', result: 'ROLL', detail: d1 + ' & ' + d2 + ' = ' + (d1+d2) });
     return;
   }
 
@@ -74,7 +72,6 @@ client.on('messageCreate', async msg => {
       'Konvert Flips\' Coinflip',
       (result === 'HEADS' ? '🟡' : '⚪') + '  **' + result + '**'
     )] });
-    await log(client, { user: msg.author, game: 'Coinflip', result: 'FLIP', detail: result });
     return;
   }
 });
