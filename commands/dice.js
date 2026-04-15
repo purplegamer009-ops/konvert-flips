@@ -12,7 +12,9 @@ module.exports = {
     await wait(1000);
     const d1 = hmacRoll(1, sides), d2 = hmacRoll(1, sides);
     const f1 = sides === 6 ? FACE[d1-1] : d1, f2 = sides === 6 ? FACE[d2-1] : d2;
-    await interaction.editReply({ embeds: [em('Konvert Flips\' Dice Roll', '**' + interaction.user.displayName + '** rolled **' + f1 + '** & **' + f2 + '**')] });
-    await log(client, { user: interaction.user, game: 'Dice', result: 'ROLL', detail: d1 + ' & ' + d2 });
+    await interaction.editReply({ embeds: [em('Konvert Flips\' Dice Roll',
+      '**' + interaction.user.displayName + '** rolled **' + f1 + '** & **' + f2 + '**\n\nTotal: **' + (d1+d2) + '**'
+    )] });
+    await log(client, { user: interaction.user, game: 'Dice', result: 'ROLL', detail: d1 + ' & ' + d2 + ' = ' + (d1+d2) });
   },
 };
