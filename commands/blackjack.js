@@ -1,10 +1,10 @@
 const { SlashCommandBuilder } = require('discord.js');
-const { em, wait, rnd } = require('../utils/theme');
+const { em, wait, hmacRoll } = require('../utils/theme');
 const { log } = require('../utils/logger');
 
 const SUITS = ['♠️','♥️','♦️','♣️'];
 const VALS  = ['2','3','4','5','6','7','8','9','10','J','Q','K','A'];
-const card  = () => ({ s: SUITS[rnd(0,3)], v: VALS[rnd(0,12)] });
+const card  = () => ({ s: SUITS[hmacRoll(0,3)], v: VALS[hmacRoll(0,12)] });
 const cval  = v => ['J','Q','K'].includes(v) ? 10 : v==='A' ? 11 : parseInt(v);
 const show  = h => h.map(c=>`${c.v}${c.s}`).join(' ');
 function total(h) {
@@ -14,21 +14,27 @@ function total(h) {
 
 async function playHandDM(client, user, channel) {
   let hand = [card(), card()];
-  const dm = await user.createDM();
+
+  let dm;
+  try {
+    dm = await user.createDM();
+  } catch {
+    await channel.send({ embeds: [em('Konvert Flips\' Blackjack', '❌  Could not DM <@' + user.id + '>. Make sure DMs are open.')] });
+    return { total: 0, bust: true, failed: true };
+  }
 
   if (total(hand) === 21) {
     await dm.send({ embeds: [em('Konvert Flips\' Blackjack', '🃏  **' + show(hand) + '**\n\n🎉  BLACKJACK!')] });
-    await channel.send({ embeds: [em('Konvert Flips\' Blackjack', '<@' + user.id + '> got their cards in DMs ✅')] });
+    await channel.send({ embeds: [em('Konvert Flips\' Blackjack', '<@' + user.id + '> got their cards ✅')] });
     return { total: 21, blackjack: true };
   }
 
-  await dm.send({ embeds: [em('Konvert Flips\' Blackjack',
-    'Your hand:\n🃏  **' + show(hand) + '**  =  **' + total(hand) + '**\n\nType `hit` or `stand`'
-  )] });
+  await dm.send({ embeds: [em('Konvert Flips\' Blackjack', 'Your hand:\n🃏  **' + show(hand) + '**  =  **' + total(hand) + '**\n\nType `hit` or `stand`')] });
   await channel.send({ embeds: [em('Konvert Flips\' Blackjack', '<@' + user.id + '> is playing in DMs — check your DMs!')] });
 
   while (true) {
     let move = null;
+
     await new Promise(resolve => {
       const timeout = setTimeout(() => {
         client.off('messageCreate', handler);
@@ -38,10 +44,11 @@ async function playHandDM(client, user, channel) {
       function handler(msg) {
         if (msg.author.id !== user.id) return;
         if (msg.guild) return;
-        if (!['hit','stand'].includes(msg.content.toLowerCase().trim())) return;
+        const content = msg.content.toLowerCase().trim();
+        if (!['hit','stand'].includes(content)) return;
         clearTimeout(timeout);
         client.off('messageCreate', handler);
-        move = msg.content.toLowerCase().trim();
+        move = content;
         resolve();
       }
       client.on('messageCreate', handler);
@@ -69,9 +76,7 @@ async function playHandDM(client, user, channel) {
       return { total: 21 };
     }
 
-    await dm.send({ embeds: [em('Konvert Flips\' Blackjack',
-      'Your hand:\n🃏  **' + show(hand) + '**  =  **' + t + '**\n\nType `hit` or `stand`'
-    )] });
+    await dm.send({ embeds: [em('Konvert Flips\' Blackjack', 'Your hand:\n🃏  **' + show(hand) + '**  =  **' + t + '**\n\nType `hit` or `stand`')] });
   }
 }
 
@@ -87,7 +92,8 @@ module.exports = {
     if (opponent.bot) return interaction.reply({ content: '🚫  Cannot play against a bot.', ephemeral: true });
 
     await interaction.reply({ embeds: [em('Konvert Flips\' Blackjack',
-      '<@' + interaction.user.id + '> challenged <@' + opponent.id + '> to **1v1 Blackjack!**\n\n<@' + opponent.id + '> — type `accept` or `decline` in chat'
+      '<@' + interaction.user.id + '> challenged <@' + opponent.id + '> to **1v1 Blackjack!**\n\n' +
+      '<@' + opponent.id + '> — type `accept` or `decline` in chat'
     )] });
 
     let accepted = false;
@@ -105,15 +111,18 @@ module.exports = {
     if (!accepted) return interaction.channel.send({ embeds: [em('Konvert Flips\' Blackjack', '❌  <@' + opponent.id + '> declined.')] });
 
     await interaction.channel.send({ embeds: [em('Konvert Flips\' Blackjack',
-      '🃏  Game on! Both players will play in their **DMs** — no peeking!\n\n<@' + interaction.user.id + '> goes first — check your DMs!'
+      '🃏  Game on! Both players will play in their **DMs**\n\n<@' + interaction.user.id + '> goes first — check your DMs!'
     )] });
 
     await wait(500);
     const r1 = await playHandDM(client, interaction.user, interaction.channel);
-    await wait(500);
+    if (r1.failed) return;
 
+    await wait(500);
     await interaction.channel.send({ embeds: [em('Konvert Flips\' Blackjack', '<@' + interaction.user.id + '> is done!\n\nNow <@' + opponent.id + '> — check your DMs!')] });
     const r2 = await playHandDM(client, opponent, interaction.channel);
+    if (r2.failed) return;
+
     await wait(500);
 
     const t1 = r1.bust ? -1 : r1.total;
@@ -121,15 +130,19 @@ module.exports = {
     let line, winner;
 
     if (t1 === t2 || (r1.bust && r2.bust)) { line = '🤝  TIE'; }
-    else if (t1 > t2) { winner = interaction.user; line = '🏆  <@' + interaction.user.id + '> wins!'; }
-    else { winner = opponent; line = '🏆  <@' + opponent.id + '> wins!'; }
+    else if (t1 > t2) { winner = interaction.user; line = '🏆  **<@' + interaction.user.id + '> wins!**'; }
+    else { winner = opponent; line = '🏆  **<@' + opponent.id + '> wins!**'; }
 
-    await interaction.channel.send({ embeds: [em('Konvert Flips\' Blackjack  —  Result',
+    await interaction.channel.send({ embeds: [em('Konvert Flips\' Blackjack — Result',
       '<@' + interaction.user.id + '>  **' + (r1.bust ? 'BUST' : r1.total) + '**\n' +
       '<@' + opponent.id + '>  **' + (r2.bust ? 'BUST' : r2.total) + '**\n\n' + line
     )] });
 
-    await log(client, { user: winner ?? interaction.user, game: '1v1 Blackjack', result: winner ? 'WIN' : 'TIE',
-      detail: interaction.user.username + ': ' + (r1.bust?'BUST':r1.total) + '  vs  ' + opponent.username + ': ' + (r2.bust?'BUST':r2.total) });
+    await log(client, {
+      user: winner ?? interaction.user,
+      game: '1v1 Blackjack',
+      result: winner ? 'WIN' : 'TIE',
+      detail: interaction.user.username + ': ' + (r1.bust?'BUST':r1.total) + '  vs  ' + opponent.username + ': ' + (r2.bust?'BUST':r2.total),
+    });
   },
 };
