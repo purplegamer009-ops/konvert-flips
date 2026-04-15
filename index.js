@@ -32,12 +32,9 @@ client.once('ready', () => {
 
 client.on('interactionCreate', async i => {
   if (!i.isChatInputCommand()) return;
-
-  // Block commands in locked channels (except /lock and /unlock)
   if (client.blockedChannels.has(i.channelId) && i.commandName !== 'lock' && i.commandName !== 'unlock') {
     return i.reply({ content: '🔒  Games are disabled in this channel.', ephemeral: true });
   }
-
   const cmd = client.commands.get(i.commandName);
   if (!cmd) return;
   try { await cmd.execute(i, client); }
@@ -59,13 +56,26 @@ client.on('messageCreate', async msg => {
   if (msg.author.bot) return;
   if (client.blockedChannels.has(msg.channelId)) return;
   const cmd = msg.content.toLowerCase().trim();
-  if (cmd !== '?dice' && cmd !== '?roll') return;
-  const d1 = hmacRoll(1, 6), d2 = hmacRoll(1, 6);
-  await msg.channel.send({ embeds: [em(
-    'Konvert Flips\' Dice Roll',
-    '**' + msg.author.displayName + '** rolled **' + FACE[d1-1] + '** & **' + FACE[d2-1] + '**\n\nTotal: **' + (d1+d2) + '**'
-  )] });
-  await log(client, { user: msg.author, game: 'Dice', result: 'ROLL', detail: d1 + ' & ' + d2 + ' = ' + (d1+d2) });
+
+  if (cmd === '?dice' || cmd === '?roll') {
+    const d1 = hmacRoll(1, 6), d2 = hmacRoll(1, 6);
+    await msg.channel.send({ embeds: [em(
+      'Konvert Flips\' Dice Roll',
+      '**' + msg.author.displayName + '** rolled **' + FACE[d1-1] + '** & **' + FACE[d2-1] + '**\n\nTotal: **' + (d1+d2) + '**'
+    )] });
+    await log(client, { user: msg.author, game: 'Dice', result: 'ROLL', detail: d1 + ' & ' + d2 + ' = ' + (d1+d2) });
+    return;
+  }
+
+  if (cmd === '?cf') {
+    const result = hmacRoll(1, 2) === 1 ? 'HEADS' : 'TAILS';
+    await msg.channel.send({ embeds: [em(
+      'Konvert Flips\' Coinflip',
+      (result === 'HEADS' ? '🟡' : '⚪') + '  **' + result + '**'
+    )] });
+    await log(client, { user: msg.author, game: 'Coinflip', result: 'FLIP', detail: result });
+    return;
+  }
 });
 
 (async () => { await deployCommands(); client.login(process.env.DISCORD_TOKEN); })();
