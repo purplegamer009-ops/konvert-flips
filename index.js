@@ -54,8 +54,14 @@ const FACE = ['⚀','⚁','⚂','⚃','⚄','⚅'];
 
 client.on('messageCreate', async msg => {
   if (msg.author.bot) return;
-  if (client.blockedChannels.has(msg.channelId)) return;
   const cmd = msg.content.toLowerCase().trim();
+  if (cmd !== '?dice' && cmd !== '?roll' && cmd !== '?cf') return;
+
+  // Check if channel is blocked — skip if unlocked
+  if (client.blockedChannels.has(msg.channelId)) {
+    await msg.reply({ content: '🔒  Games are disabled in this channel.', allowedMentions: { repliedUser: false } });
+    return;
+  }
 
   if (cmd === '?dice' || cmd === '?roll') {
     const d1 = hmacRoll(1, 6), d2 = hmacRoll(1, 6);
