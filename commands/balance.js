@@ -15,38 +15,83 @@ module.exports = {
     await interaction.deferReply();
 
     try {
-      const res = await fetch('https://api.blockcypher.com/v1/ltc/main/addrs/' + address + '/balance');
-      const data = await res.json();
+      // Fetch balance and transaction data simultaneously
+      const [balRes, priceRes, txRes] = await Promise.all([
+        fetch('https://api.blockcypher.com/v1/ltc/main/addrs/' + address + '/balance'),
+        fetch('https://api.coingecko.com/api/v3/simple/price?ids=litecoin&vs_currencies=usd'),
+        fetch('https://api.blockcypher.com/v1/ltc/main/addrs/' + address + '?limit=10'),
+      ]);
 
-      if (data.error) {
-        return interaction.editReply({ content: '❌  Invalid address or API error: ' + data.error });
+      const balData  = await balRes.json();
+      const priceData = await priceRes.json();
+      const txData   = await txRes.json();
+
+      if (balData.error) {
+        return interaction.editReply({ content: '❌  API error: ' + balData.error });
       }
 
-      const confirmed   = (data.balance / 1e8).toFixed(8);
-      const unconfirmed = (data.unconfirmed_balance / 1e8).toFixed(8);
-      const totalRecv   = (data.total_received / 1e8).toFixed(8);
-      const totalSent   = (data.total_sent / 1e8).toFixed(8);
-      const txCount     = data.n_tx;
+      const ltcPrice    = priceData?.litecoin?.usd ?? 0;
+      const confirmed   = balData.balance / 1e8;
+      const unconfirmed = balData.unconfirmed_balance / 1e8;
+      const totalRecv   = balData.total_received / 1e8;
+      const totalSent   = balData.total_sent / 1e8;
+      const txCount     = balData.n_tx;
 
-      await interaction.editReply({ embeds: [em(
-        'Konvert Flips\' LTC Wallet',
-        [
-          '`' + address + '`',
-          '',
-          '💰  **Confirmed Balance:** `' + confirmed + ' LTC`',
-          '⏳  **Pending:** `' + unconfirmed + ' LTC`',
-          '',
-          '📥  **Total Received:** `' + totalRecv + ' LTC`',
-          '📤  **Total Sent:** `' + totalSent + ' LTC`',
-          '🔁  **Transactions:** `' + txCount + '`',
-          '',
-          '[View on Blockchain](https://live.blockcypher.com/ltc/address/' + address + '/)',
-        ].join('\n')
-      )] });
+      const toUSD = ltc => '$' + (ltc * ltcPrice).toFixed(2);
+
+      // Build incoming transaction list
+      const txLines = [];
+      if (txData.txrefs && txData.txrefs.length > 0) {
+        const incoming = txData.txrefs
+          .filter(tx => !tx.spent)
+          .slice(0, 5);
+
+        for (const tx of incoming) {
+          const ltcAmt = (tx.value / 1e8).toFixed(8);
+          const usdAmt = toUSD(tx.value / 1e8);
+          const confirmed = tx.confirmations > 0 ? '✅' : '⏳';
+          const date = new Date(tx.confirmed || tx.received).toLocaleDateString();
+          txLines.push(confirmed + '  `' + ltcAmt + ' LTC` (' + usdAmt + ')  •  ' + date);
+        }
+      }
+
+      const lines = [
+        '`' + address + '`',
+        '',
+        '**LTC Price:** `$' + ltcPrice.toFixed(2) + '`',
+        '',
+        '💰  **Confirmed Balance**',
+        '`' + confirmed.toFixed(8) + ' LTC`  •  `' + toUSD(confirmed) + '`',
+        '',
+        '⏳  **Pending / Unconfirmed**',
+        '`' + unconfirmed.toFixed(8) + ' LTC`  •  `' + toUSD(unconfirmed) + '`',
+        '',
+        '📥  **Total Received**',
+        '`' + totalRecv.toFixed(8) + ' LTC`  •  `' + toUSD(totalRecv) + '`',
+        '',
+        '📤  **Total Sent**',
+        '`' + totalSent.toFixed(8) + ' LTC`  •  `' + toUSD(totalSent) + '`',
+        '',
+        '🔁  **Total Transactions:** `' + txCount + '`',
+      ];
+
+      if (txLines.length > 0) {
+        lines.push('');
+        lines.push('**Recent Incoming Transactions**');
+        lines.push(...txLines);
+      } else {
+        lines.push('');
+        lines.push('📭  No incoming transactions found');
+      }
+
+      lines.push('');
+      lines.push('[View on Blockchain](https://live.blockcypher.com/ltc/address/' + address + '/)');
+
+      await interaction.editReply({ embeds: [em('Konvert Flips\' LTC Wallet', lines.join('\n'))] });
 
     } catch (err) {
       console.error(err);
-      await interaction.editReply({ content: '❌  Failed to fetch balance. Try again.' });
+      await interaction.editReply({ content: '❌  Failed to fetch data. Try again.' });
     }
   },
 };
