@@ -17,6 +17,12 @@ const client = new Client({
 client.commands = new Collection();
 client.blockedChannels = new Set();
 
+// Load saved LTC address on startup
+if (fs.existsSync('./ltc_address.txt')) {
+  process.env.LTC_ADDRESS = fs.readFileSync('./ltc_address.txt', 'utf8').trim();
+  console.log('💰  LTC Address loaded:', process.env.LTC_ADDRESS);
+}
+
 for (const file of fs.readdirSync('./commands').filter(f => f.endsWith('.js'))) {
   const cmd = require(`./commands/${file}`);
   if (cmd.data && cmd.execute) client.commands.set(cmd.data.name, cmd);
