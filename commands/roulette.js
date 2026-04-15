@@ -12,9 +12,8 @@ module.exports = {
   async execute(interaction, client) {
     const bet=interaction.options.getString('bet');
     await interaction.deferReply();
-    for (const frame of ['`[░░░░░░░░░░]`','`[████░░░░░░]`','`[████████░░]`','`[██████████]`']) {
-      await interaction.editReply({ embeds: [em('Konvert Flips\' Roulette','🎡  Spinning...\n'+frame)] }); await wait(300);
-    }
+    await interaction.editReply({ embeds: [em('Konvert Flips\' Roulette', '🎡  Spinning...')] });
+    await wait(1000);
     const p=BOARD[hmacRoll(0,BOARD.length-1)];
     let won=false;
     switch(bet){case 'red':won=p.c==='red';break;case 'black':won=p.c==='black';break;case 'green':won=p.c==='green';break;case 'odd':won=p.n>0&&p.n%2!==0;break;case 'even':won=p.n>0&&p.n%2===0;break;case 'low':won=p.n>=1&&p.n<=18;break;case 'high':won=p.n>=19;break;}
