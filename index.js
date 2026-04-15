@@ -15,6 +15,7 @@ const client = new Client({
 });
 
 client.commands = new Collection();
+client.blockedChannels = new Set();
 
 for (const file of fs.readdirSync('./commands').filter(f => f.endsWith('.js'))) {
   const cmd = require(`./commands/${file}`);
@@ -31,6 +32,12 @@ client.once('ready', () => {
 
 client.on('interactionCreate', async i => {
   if (!i.isChatInputCommand()) return;
+
+  // Block commands in locked channels (except /lock and /unlock)
+  if (client.blockedChannels.has(i.channelId) && i.commandName !== 'lock' && i.commandName !== 'unlock') {
+    return i.reply({ content: '🔒  Games are disabled in this channel.', ephemeral: true });
+  }
+
   const cmd = client.commands.get(i.commandName);
   if (!cmd) return;
   try { await cmd.execute(i, client); }
@@ -50,6 +57,7 @@ const FACE = ['⚀','⚁','⚂','⚃','⚄','⚅'];
 
 client.on('messageCreate', async msg => {
   if (msg.author.bot) return;
+  if (client.blockedChannels.has(msg.channelId)) return;
   const cmd = msg.content.toLowerCase().trim();
   if (cmd !== '?dice' && cmd !== '?roll') return;
   const d1 = hmacRoll(1, 6), d2 = hmacRoll(1, 6);
