@@ -7,9 +7,8 @@ module.exports = {
   data: new SlashCommandBuilder().setName('highcard').setDescription('🃏  Draw a random card'),
   async execute(interaction, client) {
     await interaction.deferReply();
-    for (const frame of ['`[░░░░░░░░░░]`','`[████░░░░░░]`','`[████████░░]`','`[██████████]`']) {
-      await interaction.editReply({ embeds: [em('Konvert Flips\' High Card', '🃏  Drawing...\n' + frame)] }); await wait(300);
-    }
+    await interaction.editReply({ embeds: [em('Konvert Flips\' High Card', '🃏  Drawing...')] });
+    await wait(1000);
     const card = VALS[hmacRoll(0, 12)] + SUITS[hmacRoll(0, 3)];
     await interaction.editReply({ embeds: [em('Konvert Flips\' High Card', '**' + interaction.user.displayName + '** drew **' + card + '**')] });
     await log(client, { user: interaction.user, game: 'High Card', result: 'DRAW', detail: card });
