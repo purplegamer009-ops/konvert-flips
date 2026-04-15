@@ -12,9 +12,8 @@ module.exports = {
   data: new SlashCommandBuilder().setName('scratch').setDescription('🎟️  Scratch a lottery card'),
   async execute(interaction, client) {
     await interaction.deferReply();
-    for (const frame of ['`[░░░░░░░░░░]`','`[████░░░░░░]`','`[████████░░]`','`[██████████]`']) {
-      await interaction.editReply({ embeds: [em('Konvert Flips\' Scratch Card', '🎟️  Scratching...\n' + frame)] }); await wait(300);
-    }
+    await interaction.editReply({ embeds: [em('Konvert Flips\' Scratch Card', '🎟️  Scratching...')] });
+    await wait(1000);
     const [p1,p2,p3]=[rollPrize(),rollPrize(),rollPrize()];
     const match=p1.s===p2.s&&p2.s===p3.s, result=match&&p1.t>0?'WIN':'LOSS';
     let line;
