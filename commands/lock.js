@@ -13,6 +13,6 @@ module.exports = {
     }
     const target = interaction.options.getChannel('channel') ?? interaction.channel;
     client.blockedChannels.add(target.id);
-    await interaction.reply({ embeds: [em('Konvert Flips\' Channel Lock', '🔒  Games disabled in <#' + target.id + '>\n\nUse `/unlock` to re-enable.')] });
+    await interaction.reply({ embeds: [em('Konvert Flips\' Channel Lock', '🔒  Games disabled in <#' + target.id + '>\n\nUse `/unlock` to re-enable.')], ephemeral: true });
   },
 };
