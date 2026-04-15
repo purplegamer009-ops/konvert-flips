@@ -1,11 +1,10 @@
 const { SlashCommandBuilder } = require('discord.js');
 const { em, wait, hmacRoll } = require('../utils/theme');
-const { log } = require('../utils/logger');
 const FACE = ['⚀','⚁','⚂','⚃','⚄','⚅'];
 module.exports = {
   data: new SlashCommandBuilder().setName('dice').setDescription('🎲  Roll two dice')
     .addIntegerOption(o => o.setName('sides').setDescription('Sides per die (default 6)').setMinValue(2).setMaxValue(100)),
-  async execute(interaction, client) {
+  async execute(interaction) {
     const sides = interaction.options.getInteger('sides') ?? 6;
     await interaction.deferReply();
     await interaction.editReply({ embeds: [em('Konvert Flips\' Dice Roll', '🎲  Rolling...')] });
@@ -15,6 +14,5 @@ module.exports = {
     await interaction.editReply({ embeds: [em('Konvert Flips\' Dice Roll',
       '**' + interaction.user.displayName + '** rolled **' + f1 + '** & **' + f2 + '**\n\nTotal: **' + (d1+d2) + '**'
     )] });
-    await log(client, { user: interaction.user, game: 'Dice', result: 'ROLL', detail: d1 + ' & ' + d2 + ' = ' + (d1+d2) });
   },
 };
