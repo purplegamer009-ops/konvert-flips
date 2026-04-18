@@ -13,9 +13,9 @@ module.exports = {
   data: new SlashCommandBuilder().setName('limbo').setDescription('🚀  Launch into Limbo'),
   async execute(interaction) {
     await interaction.deferReply();
-    await interaction.editReply({ embeds: [em('Konvert Flips\' Limbo', '🚀  Launching...')] });
+    await interaction.editReply({ embeds: [em('Konvault\' Limbo', '🚀  Launching...')] });
     await wait(1000);
     const m = roll();
-    await interaction.editReply({ embeds: [em('Konvert Flips\' Limbo', '**' + interaction.user.displayName + '** landed on **' + m + 'x**')] });
+    await interaction.editReply({ embeds: [em('Konvault\' Limbo', '**' + interaction.user.displayName + '** landed on **' + m + 'x**')] });
   },
 };
