@@ -1,21 +1,22 @@
 const { EmbedBuilder } = require('discord.js');
 const crypto = require('crypto');
 
-const LOGO = () => process.env.LOGO_URL || null;
+const LOGO = () => 'https://i.imgur.com/X9kcsx0.png';
 const PURPLE = 0x7C4DFF;
 
 function hmacRoll(min, max) {
   const range = max - min + 1;
-  const key = crypto.randomBytes(64);
-  const data = crypto.randomBytes(64);
-  const hmac = crypto.createHmac('sha256', key);
-  hmac.update(data);
-  const digest = hmac.digest();
-  let val = 0;
-  for (let i = 0; i < 6; i++) val = val * 256 + digest[i];
-  const limit = Math.floor(Math.pow(2, 48) / range) * range;
-  if (val >= limit) return hmacRoll(min, max);
-  return min + (val % range);
+  const bitsNeeded = Math.ceil(Math.log2(range));
+  const bytesNeeded = Math.ceil(bitsNeeded / 8);
+  const mask = Math.pow(2, bitsNeeded) - 1;
+  let value;
+  do {
+    const buf = crypto.randomBytes(bytesNeeded);
+    value = 0;
+    for (let i = 0; i < bytesNeeded; i++) value = (value << 8) | buf[i];
+    value = value & mask;
+  } while (value >= range);
+  return min + value;
 }
 
 function hmacFloat() {
@@ -49,7 +50,7 @@ function em(title, desc, fields) {
   const embed = new EmbedBuilder()
     .setColor(PURPLE)
     .setTimestamp()
-    .setFooter({ text: 'KONVERT FLIPS™', iconURL: logo ?? undefined });
+    .setFooter({ text: 'KONVAULT™', iconURL: logo });
   if (title) embed.setTitle(title);
   if (desc) embed.setDescription(desc);
   if (logo) embed.setThumbnail(logo);
