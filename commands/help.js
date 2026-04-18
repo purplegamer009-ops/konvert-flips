@@ -1,9 +1,9 @@
 const { SlashCommandBuilder } = require('discord.js');
 const { em } = require('../utils/theme');
 module.exports = {
-  data: new SlashCommandBuilder().setName('help').setDescription('📖  All Konvert Flips commands'),
+  data: new SlashCommandBuilder().setName('help').setDescription('📖  All Konvault commands'),
   async execute(interaction) {
-    await interaction.reply({ embeds: [em('KONVERT FLIPS™  —  COMMANDS', [
+    await interaction.reply({ embeds: [em('KONVAULT™  —  COMMANDS', [
       '**Solo**',
       '🎲  `/dice` — Roll two dice',
       '🚀  `/limbo` — Random multiplier 1x–100x',
@@ -20,8 +20,16 @@ module.exports = {
       '🔫  `/russian @user` — Russian Roulette',
       '🔢  `/highlow @user` — Higher or Lower',
       '',
+      '**Wallet**',
+      '💰  `/balance` — Check LTC wallet',
+      '💜  `/solbalance` — Check SOL wallet',
+      '',
       '**Owner**',
       '📋  `/logresult` — Manually log a result',
+      '🔒  `/lock` — Disable games in channel',
+      '🔓  `/unlock` — Re-enable games in channel',
+      '🎮  `/gamechannel @p1 @p2` — Lock channel to 2 players',
+      '🔓  `/endgame` — Unlock game channel',
     ].join('\n'))] });
   },
 };
