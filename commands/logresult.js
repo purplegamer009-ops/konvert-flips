@@ -23,7 +23,8 @@ module.exports = {
     const embed=new EmbedBuilder().setColor(color)
       .setTitle((isWin?'✅':isLoss?'❌':'🤝')+'  '+game+'  —  '+result)
       .setDescription(['👤  **Player:** <@'+player.id+'>  ('+player.username+')','🎮  **Game:** '+game,'📊  **Result:** '+result,amount?'💰  **Amount:** '+amount:null,note?'📝  **Note:** '+note:null,'🔧  **Logged by:** <@'+interaction.user.id+'>'].filter(Boolean).join('\n'))
-      .setTimestamp().setFooter({text:'KONVAULT™  •  Manual Log'});
+      .setTimestamp()
+      .setFooter({text:'KONVAULT™  •  Manual Log'});
     await channel.send({embeds:[embed]});
     await interaction.reply({content:'✅  Result logged to <#'+logChannelId+'>',ephemeral:true});
   },
