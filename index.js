@@ -17,10 +17,11 @@ const client = new Client({
 client.commands = new Collection();
 client.blockedChannels = new Set();
 
-// Load saved LTC address on startup
 if (fs.existsSync('./ltc_address.txt')) {
   process.env.LTC_ADDRESS = fs.readFileSync('./ltc_address.txt', 'utf8').trim();
-  console.log('💰  LTC Address loaded:', process.env.LTC_ADDRESS);
+}
+if (fs.existsSync('./sol_address.txt')) {
+  process.env.SOL_ADDRESS = fs.readFileSync('./sol_address.txt', 'utf8').trim();
 }
 
 for (const file of fs.readdirSync('./commands').filter(f => f.endsWith('.js'))) {
@@ -29,7 +30,7 @@ for (const file of fs.readdirSync('./commands').filter(f => f.endsWith('.js'))) 
 }
 
 client.once('ready', () => {
-  console.log(`\n🎰  Konvert Flips™  •  Online as ${client.user.tag}`);
+  console.log(`\n🎰  Konvault™  •  Online as ${client.user.tag}`);
   client.user.setPresence({
     status: 'online',
     activities: [{ name: '/dice /limbo /coinflip /rps /blackjack /crash', type: 0 }],
@@ -66,7 +67,7 @@ client.on('messageCreate', async msg => {
   if (cmd === '?dice' || cmd === '?roll') {
     const d1 = hmacRoll(1, 6), d2 = hmacRoll(1, 6);
     await msg.channel.send({ embeds: [em(
-      'Konvert Flips\' Dice Roll',
+      'Konvault\' Dice Roll',
       '**' + msg.author.displayName + '** rolled **' + FACE[d1-1] + '** & **' + FACE[d2-1] + '**\n\nTotal: **' + (d1+d2) + '**'
     )] });
     return;
@@ -75,7 +76,7 @@ client.on('messageCreate', async msg => {
   if (cmd === '?cf') {
     const result = hmacRoll(1, 2) === 1 ? 'HEADS' : 'TAILS';
     await msg.channel.send({ embeds: [em(
-      'Konvert Flips\' Coinflip',
+      'Konvault\' Coinflip',
       (result === 'HEADS' ? '🟡' : '⚪') + '  **' + result + '**'
     )] });
     return;
