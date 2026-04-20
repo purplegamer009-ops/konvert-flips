@@ -1,8 +1,46 @@
 const { EmbedBuilder } = require('discord.js');
 const crypto = require('crypto');
 
-const LOGO = () => 'https://i.imgur.com/X9kcsx0.png';
 const PURPLE = 0x7C4DFF;
+
+const IMAGES = {
+  logo:        'https://i.imgur.com/3VJ0e1M.png',
+  tower:       'https://i.imgur.com/9EijdXJ.png',
+  price:       'https://i.imgur.com/ww31ogR.png',
+  verify:      'https://i.imgur.com/9FOoGmz.png',
+  dice:        'https://i.imgur.com/2XiD1YT.png',
+  coinflip:    'https://i.imgur.com/52P2XS1.png',
+  limbo:       'https://i.imgur.com/fSoIgTJ.png',
+  crash:       'https://i.imgur.com/ziYBD1H.png',
+  slots:       'https://i.imgur.com/T1M3EWF.png',
+  highcard:    'https://i.imgur.com/FUXpfzI.png',
+  roulette:    'https://i.imgur.com/2uRTYsX.png',
+  scratch:     'https://i.imgur.com/UrvNpfH.png',
+  russian:     'https://i.imgur.com/FX6sOoi.png',
+  rps:         'https://i.imgur.com/e6pyB5B.png',
+  blackjack:   'https://i.imgur.com/fAZ7Eww.png',
+  highlow:     'https://i.imgur.com/bolkA2N.png',
+  win:         'https://i.imgur.com/iZBVhvE.png',
+  loss:        'https://i.imgur.com/XppMuny.png',
+  jackpot:     'https://i.imgur.com/YqUKx2r.png',
+  balance:     'https://i.imgur.com/OuKxmBY.png',
+  solbalance:  'https://i.imgur.com/csXKUK6.png',
+  gamechannel: 'https://i.imgur.com/XppMuny.png',
+};
+
+function em(title, desc, fields, imageKey) {
+  const logo = IMAGES.logo;
+  const embed = new EmbedBuilder()
+    .setColor(PURPLE)
+    .setTimestamp()
+    .setFooter({ text: 'KONVAULT™', iconURL: logo });
+  if (title) embed.setTitle(title);
+  if (desc) embed.setDescription(desc);
+  if (logo) embed.setThumbnail(logo);
+  if (fields?.length) embed.addFields(fields);
+  if (imageKey && IMAGES[imageKey]) embed.setImage(IMAGES[imageKey]);
+  return embed;
+}
 
 function hmacRoll(min, max) {
   const range = max - min + 1;
@@ -45,19 +83,20 @@ function secureShuffle(arr) {
   return a;
 }
 
-function em(title, desc, fields) {
-  const logo = LOGO();
-  const embed = new EmbedBuilder()
-    .setColor(PURPLE)
-    .setTimestamp()
-    .setFooter({ text: 'KONVAULT™', iconURL: logo });
-  if (title) embed.setTitle(title);
-  if (desc) embed.setDescription(desc);
-  if (logo) embed.setThumbnail(logo);
-  if (fields?.length) embed.addFields(fields);
-  return embed;
+function generateFairRoll(min, max) {
+  const serverSeed = crypto.randomBytes(32).toString('hex');
+  const clientSeed = crypto.randomBytes(16).toString('hex');
+  const nonce = Date.now();
+  const hmac = crypto.createHmac('sha256', serverSeed);
+  hmac.update(`${clientSeed}:${nonce}`);
+  const digest = hmac.digest('hex');
+  const rawNum = parseInt(digest.slice(0, 8), 16);
+  const range = max - min + 1;
+  const result = min + (rawNum % range);
+  const commitment = crypto.createHash('sha256').update(serverSeed).digest('hex');
+  return { result, serverSeed, clientSeed, nonce, commitment, digest };
 }
 
 const wait = ms => new Promise(r => setTimeout(r, ms));
 
-module.exports = { em, wait, hmacRoll, hmacFloat, hmacFloat2, pick, secureShuffle, PURPLE };
+module.exports = { em, wait, hmacRoll, hmacFloat, hmacFloat2, pick, secureShuffle, generateFairRoll, PURPLE, IMAGES };
