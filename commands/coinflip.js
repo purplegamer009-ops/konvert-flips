@@ -4,9 +4,9 @@ module.exports = {
   data: new SlashCommandBuilder().setName('coinflip').setDescription('🪙  Flip a coin'),
   async execute(interaction) {
     await interaction.deferReply();
-    await interaction.editReply({ embeds: [em('Konvault\' Coinflip', '🪙  Flipping...')] });
+    await interaction.editReply({ embeds: [em('Konvault\' Coinflip','🪙  Flipping...', null, 'coinflip')] });
     await wait(1000);
-    const result = hmacRoll(1, 2) === 1 ? 'HEADS' : 'TAILS';
-    await interaction.editReply({ embeds: [em('Konvault\' Coinflip', (result === 'HEADS' ? '🟡' : '⚪') + '  **' + result + '**')] });
+    const result = hmacRoll(1,2)===1?'HEADS':'TAILS';
+    await interaction.editReply({ embeds: [em('Konvault\' Coinflip',(result==='HEADS'?'🟡':'⚪')+'  **'+result+'**', null, 'coinflip')] });
   },
 };
