@@ -7,12 +7,10 @@ module.exports = {
   async execute(interaction) {
     const sides = interaction.options.getInteger('sides') ?? 6;
     await interaction.deferReply();
-    await interaction.editReply({ embeds: [em('Konvault\' Dice Roll', '🎲  Rolling...')] });
+    await interaction.editReply({ embeds: [em('Konvault\' Dice Roll','🎲  Rolling...', null, 'dice')] });
     await wait(1000);
-    const d1 = hmacRoll(1, sides), d2 = hmacRoll(1, sides);
-    const f1 = sides === 6 ? FACE[d1-1] : d1, f2 = sides === 6 ? FACE[d2-1] : d2;
-    await interaction.editReply({ embeds: [em('Konvault\' Dice Roll',
-      '**' + interaction.user.displayName + '** rolled **' + f1 + '** & **' + f2 + '**\n\nTotal: **' + (d1+d2) + '**'
-    )] });
+    const d1=hmacRoll(1,sides), d2=hmacRoll(1,sides);
+    const f1=sides===6?FACE[d1-1]:d1, f2=sides===6?FACE[d2-1]:d2;
+    await interaction.editReply({ embeds: [em('Konvault\' Dice Roll','**'+interaction.user.displayName+'** rolled **'+f1+'** & **'+f2+'**\n\nTotal: **'+(d1+d2)+'**', null, 'dice')] });
   },
 };
