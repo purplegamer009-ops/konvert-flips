@@ -14,14 +14,15 @@ function storeProof(channelId, proof) {
 
 function getProof(channelId, proofId) {
   const proofs = proofStore.get(channelId) || [];
-  return proofs.find(p => p.id === proofId);
+  return proofs.find(function(p) { return p.id === proofId; });
 }
 
+// Tiny secondary button
 function verifyRow(proofId) {
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId('verify_' + proofId)
-      .setLabel('🔒 Verify')
+      .setLabel('🔒 verify')
       .setStyle(ButtonStyle.Secondary)
   );
 }
@@ -35,7 +36,7 @@ function registerVerifyHandler(client) {
     const proof = getProof(i.channelId, proofId);
 
     if (!proof) {
-      return i.reply({ content: 'Proof expired or not found.', ephemeral: true });
+      return i.reply({ content: '⚠️  Proof expired.', ephemeral: true });
     }
 
     const commitment = crypto.createHash('sha256').update(proof.serverSeed).digest('hex');
@@ -45,17 +46,15 @@ function registerVerifyHandler(client) {
 
     const embed = new EmbedBuilder()
       .setColor(PURPLE)
-      .setTitle('🔒  Provably Fair — Verified')
+      .setTitle('🔒  Verified')
       .setThumbnail(IMAGES.logo)
       .setDescription(
-        '**Game:** ' + proof.game + '\n' +
-        '**Result:** ' + proof.result + '\n' +
-        '**Player:** <@' + proof.userId + '>\n\n' +
-        '🔑  **Server Seed:**\n`' + proof.serverSeed + '`\n\n' +
-        '🌱  **Client Seed:** `' + proof.clientSeed + '`\n' +
-        '🔢  **Nonce:** `' + proof.nonce + '`\n\n' +
-        '🔒  **Commitment:**\n`' + commitment + '`\n\n' +
-        '✅  Result was locked in before it happened.'
+        '**' + proof.game + '** — ' + proof.result + '\n' +
+        '<@' + proof.userId + '>\n\n' +
+        '`' + proof.serverSeed + '`\n' +
+        'Client: `' + proof.clientSeed + '`  •  Nonce: `' + proof.nonce + '`\n' +
+        'Commitment: `' + commitment.slice(0,32) + '...`\n\n' +
+        '✅  Locked before the roll.'
       )
       .setTimestamp()
       .setFooter({ text: 'KONVAULT™  •  Provably Fair', iconURL: IMAGES.logo });
@@ -70,20 +69,13 @@ function registerVerifyHandler(client) {
           embeds: [new EmbedBuilder()
             .setColor(PURPLE)
             .setTitle('🔒  Verify Alert')
-            .setDescription(
-              '**' + i.user.username + '** verified a result\n\n' +
-              '**Game:** ' + proof.game + '\n' +
-              '**Result:** ' + proof.result + '\n' +
-              '**Channel:** <#' + i.channelId + '>'
-            )
+            .setDescription('**' + i.user.username + '** verified **' + proof.game + '**\nChannel: <#' + i.channelId + '>')
             .setTimestamp()
             .setFooter({ text: 'KONVAULT™', iconURL: IMAGES.logo })
           ]
         });
       }
-    } catch(err) {
-      console.error('Could not DM owner:', err);
-    }
+    } catch(e) {}
   });
 }
 
