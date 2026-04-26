@@ -1,4 +1,4 @@
-const { EmbedBuilder } = require('discord.js');
+const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
 const { IMAGES, PURPLE } = require('./theme');
 const crypto = require('crypto');
 
@@ -14,40 +14,61 @@ function storeProof(channelId, proof) {
 
 function getProof(channelId, proofId) {
   const proofs = proofStore.get(channelId) || [];
-  return proofs.find(function(p) { return p.id === proofId; });
+  return proofs.find(p => p.id === proofId);
 }
 
-function verifyFooter(proofId) {
-  return '\n-# 🔒 `/verify ' + proofId + '`';
+// Small grey button that sits under results
+function verifyRow(proofId) {
+  return new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId('kv_verify_' + proofId)
+      .setLabel('🔒 Verify Result')
+      .setStyle(ButtonStyle.Secondary)
+  );
 }
 
 function registerVerifyHandler(client) {
   client.on('interactionCreate', async function(i) {
-    if (!i.isChatInputCommand()) return;
-    if (i.commandName !== 'verify') return;
-    const proofId = i.options.getString('id');
-    if (!proofId) {
-      return i.reply({ embeds: [new EmbedBuilder().setColor(PURPLE).setTitle('🔒 Provably Fair').setThumbnail(IMAGES.logo)
-        .setDescription('Every Konvault result uses **HMAC-SHA256** cryptography.\n\nAfter any flip, copy the ID from the tiny `/verify` line at the bottom of the result.\n\nThen run `/verify id:THAT_ID` to see the full proof.')
-        .setFooter({ text: 'KONVAULT™', iconURL: IMAGES.logo })], ephemeral: true });
-    }
+    if (!i.isButton()) return;
+    if (!i.customId.startsWith('kv_verify_')) return;
+
+    const proofId = i.customId.replace('kv_verify_', '');
     const proof = getProof(i.channelId, proofId);
-    if (!proof) return i.reply({ content: '⚠️ Proof not found or expired.', ephemeral: true });
+
+    if (!proof) return i.reply({ content: '⚠️  Proof expired — only stored per session.', ephemeral: true });
+
     const commitment = crypto.createHash('sha256').update(proof.serverSeed).digest('hex');
     const hmac = crypto.createHmac('sha256', proof.serverSeed);
     hmac.update(proof.clientSeed + ':' + proof.nonce);
     const digest = hmac.digest('hex');
-    await i.reply({ embeds: [new EmbedBuilder().setColor(PURPLE).setTitle('🔒 Verified')
-      .setThumbnail(IMAGES.logo)
-      .setDescription('**' + proof.game + '** — ' + proof.result + '\n\n`' + proof.serverSeed + '`\nClient `' + proof.clientSeed + '` • Nonce `' + proof.nonce + '`\nCommitment `' + commitment.slice(0,20) + '...`\n\n✅ Locked before the roll.')
-      .setFooter({ text: 'KONVAULT™', iconURL: IMAGES.logo })], ephemeral: true });
+
+    await i.reply({
+      embeds: [new EmbedBuilder()
+        .setColor(PURPLE)
+        .setTitle('🔒  Provably Fair — Verified')
+        .setThumbnail(IMAGES.logo)
+        .setDescription(
+          '**Game:** ' + proof.game + '\n' +
+          '**Result:** ' + proof.result + '\n\n' +
+          '```' + proof.serverSeed + '```' +
+          '**Client Seed:** `' + proof.clientSeed + '`\n' +
+          '**Nonce:** `' + proof.nonce + '`\n' +
+          '**Commitment:** `' + commitment.slice(0, 32) + '...`\n\n' +
+          '✅  Result was locked in cryptographically before the roll.'
+        )
+        .setFooter({ text: 'KONVAULT™  •  Provably Fair', iconURL: IMAGES.logo })
+        .setTimestamp()
+      ],
+      ephemeral: true,
+    });
+
     try {
       if (process.env.OWNER_ID && i.user.id !== process.env.OWNER_ID) {
         const owner = await client.users.fetch(process.env.OWNER_ID);
-        await owner.send('🔒 **' + i.user.username + '** verified **' + proof.game + '**');
+        await owner.send('🔒 **' + i.user.username + '** verified **' + proof.game + '** in <#' + i.channelId + '>');
       }
     } catch(e) {}
   });
 }
 
-module.exports = { storeProof, getProof, verifyFooter, registerVerifyHandler };
+module.exports = { storeProof, getProof, verifyRow, registerVerifyHandler };
