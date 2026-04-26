@@ -1,18 +1,34 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const { IMAGES, PURPLE } = require('../utils/theme');
-const { getStats, getAll } = require('../utils/stats');
+const { getStats, getAll, clearAll } = require('../utils/stats');
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('stats')
     .setDescription('📊 Check wins, losses and P&L')
-    .addUserOption(o => o
-      .setName('user')
-      .setDescription('User to check — leave empty for leaderboard')
-      .setRequired(false)
-    ),
+    .addSubcommand(s => s.setName('check').setDescription('Check a player or leaderboard')
+      .addUserOption(o => o.setName('user').setDescription('User to check — empty for leaderboard').setRequired(false)))
+    .addSubcommand(s => s.setName('clear').setDescription('🗑️ Owner: wipe the entire leaderboard')),
 
   async execute(interaction) {
+    const sub = interaction.options.getSubcommand();
+
+    if (sub === 'clear') {
+      if (interaction.user.id !== process.env.OWNER_ID) {
+        return interaction.reply({ content: '🚫 Owner only.', ephemeral: true });
+      }
+      clearAll();
+      return interaction.reply({
+        embeds: [new EmbedBuilder().setColor(0xFF1744)
+          .setTitle('🗑️  Leaderboard Cleared')
+          .setDescription('All stats have been wiped.')
+          .setFooter({ text: 'KONVAULT™', iconURL: IMAGES.logo })
+          .setTimestamp()
+        ], ephemeral: true
+      });
+    }
+
+    // check subcommand
     const target = interaction.options.getUser('user');
 
     if (target) {
@@ -21,46 +37,40 @@ module.exports = {
         return interaction.reply({
           embeds: [new EmbedBuilder().setColor(PURPLE)
             .setDescription('📊 No recorded activity for <@' + target.id + '> yet.')
-            .setFooter({ text: 'KONVAULT™', iconURL: IMAGES.logo })
-          ]
+            .setFooter({ text: 'KONVAULT™', iconURL: IMAGES.logo })]
         });
       }
       const total   = s.wins + s.losses;
       const winRate = total > 0 ? ((s.wins / total) * 100).toFixed(1) : '0';
       const pnlPos  = s.pnl >= 0;
       const pnlStr  = (pnlPos ? '+$' : '-$') + Math.abs(s.pnl).toFixed(2);
-
       return interaction.reply({
         embeds: [new EmbedBuilder()
           .setColor(pnlPos ? 0x00E676 : 0xFF1744)
           .setTitle('📊  ' + target.displayName)
           .setThumbnail(target.displayAvatarURL())
           .addFields(
-            { name: 'P&L',      value: '**' + pnlStr + '**',                         inline: true },
-            { name: 'Record',   value: '**' + s.wins + 'W  ' + s.losses + 'L**',     inline: true },
-            { name: 'Win Rate', value: '**' + winRate + '%**',                        inline: true },
-            { name: 'Games',    value: '**' + total + '**',                           inline: true },
+            { name: 'P&L',      value: '**' + pnlStr + '**',                     inline: true },
+            { name: 'Record',   value: '**' + s.wins + 'W  ' + s.losses + 'L**', inline: true },
+            { name: 'Win Rate', value: '**' + winRate + '%**',                    inline: true },
+            { name: 'Games',    value: '**' + total + '**',                       inline: true },
           )
-          .setFooter({ text: 'KONVAULT™', iconURL: IMAGES.logo })
-          .setTimestamp()
+          .setFooter({ text: 'KONVAULT™', iconURL: IMAGES.logo }).setTimestamp()
         ]
       });
     }
 
-    // Leaderboard
     const all = getAll();
     if (all.size === 0) {
       return interaction.reply({
         embeds: [new EmbedBuilder().setColor(PURPLE)
           .setDescription('📊 No stats recorded yet.')
-          .setFooter({ text: 'KONVAULT™', iconURL: IMAGES.logo })
-        ]
+          .setFooter({ text: 'KONVAULT™', iconURL: IMAGES.logo })]
       });
     }
 
     const sorted = [...all.entries()].sort((a, b) => b[1].pnl - a[1].pnl);
     const lines = [];
-
     for (let i = 0; i < Math.min(sorted.length, 15); i++) {
       const [userId, s] = sorted[i];
       const pnlStr = (s.pnl >= 0 ? '+$' : '-$') + Math.abs(s.pnl).toFixed(2);
@@ -68,10 +78,7 @@ module.exports = {
       const arrow  = s.pnl >= 0 ? '📈' : '📉';
       lines.push(medal + '  <@' + userId + '>  ' + arrow + ' **' + pnlStr + '**  •  ' + s.wins + 'W ' + s.losses + 'L');
     }
-
-    const top = sorted[0];
-    const bot = sorted[sorted.length - 1];
-
+    const top = sorted[0], bot = sorted[sorted.length - 1];
     await interaction.reply({
       embeds: [new EmbedBuilder()
         .setColor(PURPLE)
@@ -82,7 +89,7 @@ module.exports = {
           { name: '📈 Most Up',   value: '<@' + top[0] + '>  **+$' + Math.abs(top[1].pnl).toFixed(2) + '**', inline: true },
           { name: '📉 Most Down', value: '<@' + bot[0] + '>  **-$' + Math.abs(bot[1].pnl).toFixed(2) + '**', inline: true },
         )
-        .setFooter({ text: 'KONVAULT™  •  Use /stats @user for details', iconURL: IMAGES.logo })
+        .setFooter({ text: 'KONVAULT™  •  /stats check @user for details', iconURL: IMAGES.logo })
         .setTimestamp()
       ]
     });
