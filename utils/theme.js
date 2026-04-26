@@ -4,7 +4,7 @@ const crypto = require('crypto');
 const PURPLE = 0x7C4DFF;
 
 const IMAGES = {
-  logo:        'https://i.imgur.com/mqljyFE.png',
+  logo:        'https://i.imgur.com/RKP25MI.png',
   tower:       'https://i.imgur.com/3VJ0e1M.png',
   price:       'https://i.imgur.com/9EijdXJ.png',
   verify:      'https://i.imgur.com/ww31ogR.png',
