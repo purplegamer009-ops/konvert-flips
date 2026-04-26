@@ -29,14 +29,13 @@ const IMAGES = {
 };
 
 function em(title, desc, fields, imageKey) {
-  const logo = IMAGES.logo;
   const embed = new EmbedBuilder()
     .setColor(PURPLE)
     .setTimestamp()
-    .setFooter({ text: 'KONVAULT™', iconURL: logo });
+    .setFooter({ text: 'KONVAULT™', iconURL: IMAGES.logo });
   if (title) embed.setTitle(title);
   if (desc) embed.setDescription(desc);
-  if (logo) embed.setThumbnail(logo);
+  embed.setThumbnail(IMAGES.logo);
   if (fields?.length) embed.addFields(fields);
   if (imageKey && IMAGES[imageKey]) embed.setImage(IMAGES[imageKey]);
   return embed;
@@ -88,7 +87,7 @@ function generateFairRoll(min, max) {
   const clientSeed = crypto.randomBytes(16).toString('hex');
   const nonce = Date.now();
   const hmac = crypto.createHmac('sha256', serverSeed);
-  hmac.update(`${clientSeed}:${nonce}`);
+  hmac.update(clientSeed + ':' + nonce);
   const digest = hmac.digest('hex');
   const rawNum = parseInt(digest.slice(0, 8), 16);
   const range = max - min + 1;
