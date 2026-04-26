@@ -1,26 +1,27 @@
-const { EmbedBuilder } = require('discord.js');
-const { PURPLE } = require('./theme');
+const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 
-async function log(client, { user, game, result, detail, amount }) {
-  const channelId = process.env.LOG_CHANNEL_ID;
-  if (!channelId) return;
-  const channel = await client.channels.fetch(channelId).catch(() => null);
-  if (!channel) return;
-  const isWin  = result === 'WIN' || result === 'SURVIVED' || result === 'BLACKJACK';
-  const isLoss = result === 'LOSS' || result === 'BUST' || result === 'ELIMINATED';
-  const color  = isWin ? 0x00E676 : isLoss ? 0xFF1744 : PURPLE;
-  const embed = new EmbedBuilder()
-    .setColor(color)
-    .setTitle(`${isWin ? '✅' : isLoss ? '❌' : '🤝'}  ${game}  —  ${result}`)
-    .setDescription([
-      `👤  **Player:** <@${user.id}>  (${user.username})`,
-      `🎮  **Game:** ${game}`,
-      `📊  **Result:** ${detail}`,
-      amount ? `💰  **Amount:** ${amount}` : null,
-    ].filter(Boolean).join('\n'))
-    .setTimestamp()
-    .setFooter({ text: 'KONVAULT™  •  Game Log' });
-  await channel.send({ embeds: [embed] }).catch(() => {});
+async function addRematch(channel, resultMsg, user1, user2, commandName) {
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId('rematch_' + commandName + '_' + user1.id + '_' + user2.id).setLabel('🔁 Rematch').setStyle(ButtonStyle.Secondary)
+  );
+  try { await resultMsg.edit({ components: [row] }); } catch(e) { return; }
+  try {
+    const btnCol = await resultMsg.awaitMessageComponent({
+      filter: function(b) { return [user1.id, user2.id].includes(b.user.id) && b.customId.startsWith('rematch_' + commandName); },
+      time: 30000
+    });
+    const challenger = btnCol.user;
+    const other = challenger.id === user1.id ? user2 : user1;
+    await btnCol.reply({ content: '<@' + other.id + '> — **' + challenger.username + '** wants a rematch! Type `accept` or `decline`' });
+    const rCol = await channel.awaitMessages({
+      filter: function(m) { return m.author.id === other.id && ['accept','decline'].includes(m.content.toLowerCase().trim()); },
+      max: 1, time: 20000, errors: ['time']
+    });
+    const accepted = rCol.first().content.toLowerCase().trim() === 'accept';
+    await rCol.first().delete().catch(function() {});
+    await resultMsg.edit({ components: [] }).catch(function() {});
+    if (accepted) await channel.send({ content: '🔁 Rematch accepted! Use `/' + commandName + '` to run it back.' });
+  } catch(e) { await resultMsg.edit({ components: [] }).catch(function() {}); }
 }
 
-module.exports = { log };
+module.exports = { addRematch };
