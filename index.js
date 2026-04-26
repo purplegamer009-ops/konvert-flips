@@ -36,30 +36,24 @@ const { generateFairRoll, IMAGES, PURPLE } = require('./utils/theme');
 const { storeProof, verifyRow } = require('./utils/verifyButton');
 const { recordResult, getStats, exportJSON, importJSON } = require('./utils/stats');
 
-// Load stats from backup channel on startup
 async function loadStatsFromBackup() {
   try {
     const channel = await client.channels.fetch(STATS_BACKUP_CHANNEL).catch(() => null);
     if (!channel) return;
     const messages = await channel.messages.fetch({ limit: 10 });
-    // Find most recent message with a JSON attachment
     const backupMsg = messages.find(m =>
       m.author.id === client.user.id &&
       m.attachments.size > 0 &&
       m.attachments.first().name === 'konvault_stats.json'
     );
     if (!backupMsg) { console.log('No stats backup found'); return; }
-    const url = backupMsg.attachments.first().url;
-    const res = await fetch(url);
+    const res = await fetch(backupMsg.attachments.first().url);
     const json = await res.text();
     importJSON(json);
-    console.log('✅ Stats loaded from backup channel');
-  } catch(e) {
-    console.error('Failed to load stats backup:', e);
-  }
+    console.log('✅ Stats loaded from backup');
+  } catch(e) { console.error('Stats load error:', e); }
 }
 
-// Save stats to backup channel
 async function saveStatsBackup() {
   try {
     const channel = await client.channels.fetch(STATS_BACKUP_CHANNEL).catch(() => null);
@@ -67,20 +61,16 @@ async function saveStatsBackup() {
     const json = exportJSON();
     const buf = Buffer.from(json, 'utf8');
     const attachment = new AttachmentBuilder(buf, { name: 'konvault_stats.json' });
-    // Delete previous backup messages from bot
     const messages = await channel.messages.fetch({ limit: 10 });
     const old = messages.filter(m => m.author.id === client.user.id);
     for (const [, m] of old) await m.delete().catch(() => {});
     await channel.send({ content: '📊 Stats backup — ' + new Date().toUTCString(), files: [attachment] });
-    console.log('✅ Stats backed up');
-  } catch(e) {
-    console.error('Failed to save stats backup:', e);
-  }
+  } catch(e) { console.error('Stats save error:', e); }
 }
 
 client.once('ready', async function() {
   console.log('🎰 Konvault™ online as ' + client.user.tag);
-  client.user.setPresence({ status: 'online', activities: [{ name: '/dice /rps /tower /crash /verify', type: 0 }] });
+  client.user.setPresence({ status: 'online', activities: [{ name: '/dice /rps /tower /crash', type: 0 }] });
   await loadStatsFromBackup();
 });
 
@@ -114,15 +104,12 @@ client.on('messageCreate', async function(msg) {
   const content = msg.content.trim();
   const lower = content.toLowerCase();
 
-  // Defeats tracker — owner only, specific channels
-  // Format: @winner defeats @loser NvN (any extra text after ignored)
-  // NvN = both put up N, winner gets +N, loser gets -N
+  // Defeats tracker — owner only, specific channels, DMs result privately
   if (msg.author.id === process.env.OWNER_ID && DEFEATS_CHANNELS.includes(msg.channelId)) {
     const m = content.match(/<@!?(\d+)>\s+defeats\s+<@!?(\d+)>\s+(\d+(?:\.\d+)?)v(\d+(?:\.\d+)?)/i);
     if (m) {
       const winnerId = m[1];
       const loserId  = m[2];
-      // NvN — use second number as the stake (what loser loses / winner gains)
       const amount   = parseFloat(m[4]);
 
       recordResult(winnerId, loserId, amount);
@@ -131,26 +118,25 @@ client.on('messageCreate', async function(msg) {
       const l = getStats(loserId);
       const pnl = n => (n >= 0 ? '+$' : '-$') + Math.abs(n).toFixed(2);
 
-      // Ephemeral reply — only visible to owner
-      // Since we can't do ephemeral on messageCreate, we reply and it's visible
-      // but we DON'T delete the original message
-      await msg.reply({
-        embeds: [new EmbedBuilder()
-          .setColor(0x00E676)
-          .setTitle('🏆  Result Logged')
-          .setThumbnail(IMAGES.logo)
-          .setDescription('<@' + winnerId + '> defeated <@' + loserId + '>')
-          .addFields(
-            { name: '🏆 Winner', value: '<@' + winnerId + '>\n**+$' + amount.toFixed(2) + '**\n' + w.wins + 'W ' + w.losses + 'L  •  ' + pnl(w.pnl), inline: true },
-            { name: '💀 Loser',  value: '<@' + loserId  + '>\n**-$' + amount.toFixed(2) + '**\n' + l.wins + 'W ' + l.losses + 'L  •  ' + pnl(l.pnl), inline: true },
-          )
-          .setFooter({ text: 'KONVAULT™', iconURL: IMAGES.logo })
-          .setTimestamp()
-        ],
-        allowedMentions: { repliedUser: false },
-      });
+      // DM the owner privately
+      try {
+        const owner = await client.users.fetch(msg.author.id);
+        await owner.send({
+          embeds: [new EmbedBuilder()
+            .setColor(0x00E676)
+            .setTitle('🏆  Result Logged')
+            .setThumbnail(IMAGES.logo)
+            .setDescription('<@' + winnerId + '> defeated <@' + loserId + '>')
+            .addFields(
+              { name: '🏆 Winner', value: '<@' + winnerId + '>\n**+$' + amount.toFixed(2) + '**\n' + w.wins + 'W ' + w.losses + 'L  •  ' + pnl(w.pnl), inline: true },
+              { name: '💀 Loser',  value: '<@' + loserId  + '>\n**-$' + amount.toFixed(2) + '**\n' + l.wins + 'W ' + l.losses + 'L  •  ' + pnl(l.pnl), inline: true },
+            )
+            .setFooter({ text: 'KONVAULT™', iconURL: IMAGES.logo })
+            .setTimestamp()
+          ]
+        });
+      } catch(e) { console.error('DM error:', e); }
 
-      // Backup stats after every update
       await saveStatsBackup();
       return;
     }
@@ -161,8 +147,7 @@ client.on('messageCreate', async function(msg) {
     const r1=generateFairRoll(1,6),r2=generateFairRoll(1,6);
     const proofId=storeProof(msg.channelId,{id:Date.now()+'_dt',game:'Dice',result:r1.result+' & '+r2.result,userId:msg.author.id,serverSeed:r1.serverSeed,clientSeed:r1.clientSeed,nonce:r1.nonce});
     await msg.channel.send({
-      embeds:[new EmbedBuilder().setColor(PURPLE)
-        .setTitle('🎲  Dice Roll').setThumbnail(IMAGES.dice)
+      embeds:[new EmbedBuilder().setColor(PURPLE).setTitle('🎲  Dice Roll').setThumbnail(IMAGES.dice)
         .setDescription('**'+msg.author.displayName+'** rolled the dice')
         .addFields({name:'Die 1',value:'**'+r1.result+'**',inline:true},{name:'Die 2',value:'**'+r2.result+'**',inline:true},{name:'Total',value:'**'+(r1.result+r2.result)+'**',inline:true})
         .setFooter({text:'KONVAULT™',iconURL:IMAGES.logo}).setTimestamp()],
@@ -177,8 +162,7 @@ client.on('messageCreate', async function(msg) {
     const result=roll.result===1?'HEADS':'TAILS';
     const proofId=storeProof(msg.channelId,{id:Date.now()+'_cft',game:'Coinflip',result,userId:msg.author.id,serverSeed:roll.serverSeed,clientSeed:roll.clientSeed,nonce:roll.nonce});
     await msg.channel.send({
-      embeds:[new EmbedBuilder().setColor(PURPLE)
-        .setTitle('🪙  Coin Flip').setThumbnail(IMAGES.coinflip)
+      embeds:[new EmbedBuilder().setColor(PURPLE).setTitle('🪙  Coin Flip').setThumbnail(IMAGES.coinflip)
         .setDescription('**'+msg.author.displayName+'** flipped a coin')
         .addFields({name:'Result',value:(result==='HEADS'?'🟡':'⚪')+' **'+result+'**',inline:true})
         .setFooter({text:'KONVAULT™',iconURL:IMAGES.logo}).setTimestamp()],
