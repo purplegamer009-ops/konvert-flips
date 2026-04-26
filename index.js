@@ -69,23 +69,54 @@ client.on('messageCreate', async function(msg) {
   const content = msg.content.trim();
   const lower = content.toLowerCase();
 
-  // Defeats tracker
+  // Defeats tracker — owner only, specific channels
+  // Format: @winner defeats @loser 1v1 (or 5v5, 1v2 etc — anything after is ignored)
+  // The SECOND number is what's at stake (what loser loses / winner gains)
   if (msg.author.id === process.env.OWNER_ID && DEFEATS_CHANNELS.includes(msg.channelId)) {
-    const m = content.match(/^<@!?(\d+)>\s+defeats\s+<@!?(\d+)>\s+(\d+(?:\.\d+)?)v(\d+(?:\.\d+)?)$/i);
+    const m = content.match(/<@!?(\d+)>\s+defeats\s+<@!?(\d+)>\s+(\d+(?:\.\d+)?)v(\d+(?:\.\d+)?)/i);
     if (m) {
-      const winnerId=m[1],loserId=m[2],winAmt=parseFloat(m[3]),loseAmt=parseFloat(m[4]);
-      recordResult(winnerId, loserId, winAmt);
-      const w=getStats(winnerId),l=getStats(loserId);
-      const pnl=n=>(n>=0?'+$':'-$')+Math.abs(n).toFixed(2);
-      await msg.channel.send({embeds:[new EmbedBuilder().setColor(0x00E676)
+      const winnerId = m[1];
+      const loserId  = m[2];
+      const amount   = parseFloat(m[4]); // second number = what loser loses / winner gains
+
+      recordResult(winnerId, loserId, amount);
+
+      const w = getStats(winnerId);
+      const l = getStats(loserId);
+
+      const pnl = n => (n >= 0 ? '+$' : '-$') + Math.abs(n).toFixed(2);
+
+      const embed = new EmbedBuilder()
+        .setColor(0x00E676)
         .setTitle('🏆  Result Logged')
         .setThumbnail(IMAGES.logo)
-        .setDescription('<@'+winnerId+'> defeated <@'+loserId+'>')
+        .setDescription('<@' + winnerId + '> defeated <@' + loserId + '>')
         .addFields(
-          { name: '🏆 Winner', value: '<@'+winnerId+'>\n+$'+winAmt.toFixed(2)+'\n'+w.wins+'W '+w.losses+'L  •  **'+pnl(w.pnl)+'**', inline: true },
-          { name: '💀 Loser', value: '<@'+loserId+'>\n-$'+loseAmt.toFixed(2)+'\n'+l.wins+'W '+l.losses+'L  •  **'+pnl(l.pnl)+'**', inline: true },
+          { name: '🏆 Winner', value: '<@' + winnerId + '>\n+$' + amount.toFixed(2) + '\n' + w.wins + 'W ' + w.losses + 'L  •  **' + pnl(w.pnl) + '**', inline: true },
+          { name: '💀 Loser',  value: '<@' + loserId  + '>\n-$' + amount.toFixed(2) + '\n' + l.wins + 'W ' + l.losses + 'L  •  **' + pnl(l.pnl) + '**', inline: true },
         )
-        .setFooter({text:'KONVAULT™',iconURL:IMAGES.logo}).setTimestamp()]});
+        .setFooter({ text: 'KONVAULT™', iconURL: IMAGES.logo })
+        .setTimestamp();
+
+      // Send ephemeral-style by sending then deleting the trigger message
+      await msg.delete().catch(() => {});
+      await msg.channel.send({
+        content: '<@' + msg.author.id + '>',
+        embeds: [embed],
+        // Note: channel.send can't be ephemeral, so we send to owner only via DM for privacy
+      });
+
+      // Also DM the owner privately with full confirmation
+      try {
+        const owner = await client.users.fetch(msg.author.id);
+        await owner.send({ embeds: [new EmbedBuilder()
+          .setColor(0x00E676)
+          .setTitle('✅ Result logged privately')
+          .setDescription('<@' + winnerId + '> defeated <@' + loserId + '>\n\n**Amount:** $' + amount.toFixed(2) + '\n**Winner P&L:** ' + pnl(w.pnl) + '\n**Loser P&L:** ' + pnl(l.pnl))
+          .setFooter({ text: 'KONVAULT™', iconURL: IMAGES.logo })
+        ]});
+      } catch(e) {}
+
       return;
     }
   }
