@@ -10,7 +10,12 @@ module.exports = {
     const opponent=interaction.options.getUser('opponent');
     if(opponent.id===interaction.user.id)return interaction.reply({content:'🚫 Cannot play yourself.',ephemeral:true});
     if(opponent.bot)return interaction.reply({content:'🚫 Cannot play a bot.',ephemeral:true});
-    await interaction.reply({content:'<@'+opponent.id+'>',embeds:[new EmbedBuilder().setColor(PURPLE).setDescription('<@'+interaction.user.id+'> challenged <@'+opponent.id+'> to **Crash**\n📈 Both set secret cashouts via popup\n\n`accept` or `decline`').setThumbnail(IMAGES.crash).setFooter({text:'KONVAULT™',iconURL:IMAGES.logo})]});
+    await interaction.reply({content:'<@'+opponent.id+'>',embeds:[new EmbedBuilder().setColor(PURPLE)
+      .setTitle('📈  Crash')
+      .setThumbnail(IMAGES.crash)
+      .setDescription('<@'+interaction.user.id+'> challenged <@'+opponent.id+'>\n\nBoth secretly set cashout targets via popup — same crash point decides')
+      .addFields({name:'Status',value:'Waiting for `accept` or `decline`...'})
+      .setFooter({text:'KONVAULT™',iconURL:IMAGES.logo})]});
     let accepted=false;
     try{const col=await interaction.channel.awaitMessages({filter:m=>m.author.id===opponent.id&&['accept','decline'].includes(m.content.toLowerCase().trim()),max:1,time:30000,errors:['time']});accepted=col.first().content.toLowerCase().trim()==='accept';await col.first().delete().catch(()=>{});}
     catch{return interaction.channel.send({content:'⏰ No response.'});}
@@ -38,17 +43,23 @@ module.exports = {
     const[c1,c2]=await Promise.all([collectModal(msg1,interaction.user.id,'crash_modal_p1'),collectModal(msg2,opponent.id,'crash_modal_p2')]);
     await msg1.edit({components:[]}).catch(()=>{});await msg2.edit({components:[]}).catch(()=>{});
     if(!c1||!c2)return interaction.channel.send({content:'⏰ Someone timed out.'});
-    await interaction.channel.send({embeds:[new EmbedBuilder().setColor(PURPLE).setDescription('Both locked in — **???x** vs **???x**\n\n📈 Launching...').setFooter({text:'KONVAULT™',iconURL:IMAGES.logo})]});
+    await interaction.channel.send({embeds:[new EmbedBuilder().setColor(PURPLE).setDescription('Both locked in — 📈 Launching...').setFooter({text:'KONVAULT™',iconURL:IMAGES.logo})]});
     await wait(2000);
     const cp=crashPoint(),p1s=c1<=cp,p2s=c2<=cp;
-    let line,winner;
-    if(p1s&&!p2s){winner=interaction.user;line='🏆 **<@'+interaction.user.id+'> wins** — cashed at **'+c1+'x**';}
-    else if(!p1s&&p2s){winner=opponent;line='🏆 **<@'+opponent.id+'> wins** — cashed at **'+c2+'x**';}
-    else if(p1s&&p2s){const d1=cp-c1,d2=cp-c2;if(d1<d2){winner=interaction.user;line='🏆 **<@'+interaction.user.id+'> wins** — closer (**'+c1+'x** vs **'+c2+'x**)';}else if(d2<d1){winner=opponent;line='🏆 **<@'+opponent.id+'> wins** — closer (**'+c2+'x** vs **'+c1+'x**)';}else{line='🤝 TIE';}}
-    else{line='💥 Both busted';}
+    let winner=null;
+    if(p1s&&!p2s)winner=interaction.user;
+    else if(!p1s&&p2s)winner=opponent;
+    else if(p1s&&p2s){const d1=cp-c1,d2=cp-c2;if(d1<d2)winner=interaction.user;else if(d2<d1)winner=opponent;}
     const resultMsg=await interaction.channel.send({embeds:[new EmbedBuilder().setColor(winner?0x00E676:PURPLE)
-      .setDescription('💥 Crashed at **'+cp+'x**\n\n<@'+interaction.user.id+'> **'+c1+'x** '+(p1s?'✅':'❌')+'\n<@'+opponent.id+'> **'+c2+'x** '+(p2s?'✅':'❌')+'\n\n'+line)
-      .setThumbnail(IMAGES.crash).setFooter({text:'KONVAULT™',iconURL:IMAGES.logo})]});
+      .setTitle('📈  Crash — Result')
+      .setThumbnail(winner?IMAGES.win:IMAGES.crash)
+      .addFields(
+        {name:'Crash Point',value:'**'+cp+'x**',inline:false},
+        {name:'<@'+interaction.user.id+'>',value:'**'+c1+'x** '+(p1s?'✅ Safe':'❌ Bust'),inline:true},
+        {name:'<@'+opponent.id+'>',value:'**'+c2+'x** '+(p2s?'✅ Safe':'❌ Bust'),inline:true},
+        {name:'Winner',value:winner?'🏆 <@'+winner.id+'>':'🤝 TIE / Both Bust',inline:false},
+      )
+      .setFooter({text:'KONVAULT™',iconURL:IMAGES.logo}).setTimestamp()]});
     await log(client,{user:winner||interaction.user,game:'1v1 Crash',result:winner?'WIN':'TIE',detail:'Crash: '+cp+'x — '+interaction.user.username+': '+c1+'x '+(p1s?'✅':'❌')+' — '+opponent.username+': '+c2+'x '+(p2s?'✅':'❌')});
     await addRematch(interaction.channel,resultMsg,interaction.user,opponent,'crash');
   },
