@@ -14,7 +14,7 @@ function save(stats) {
     const obj = {};
     for (const [k, v] of stats) obj[k] = v;
     fs.writeFileSync(STATS_FILE, JSON.stringify(obj, null, 2), 'utf8');
-  } catch(e) {}
+  } catch(e) { console.error('Stats save error:', e); }
 }
 
 const stats = load();
@@ -36,6 +36,23 @@ function recordResult(winnerId, loserId, amount) {
   save(stats);
 }
 
+function clearAll() {
+  stats.clear();
+  save(stats);
+}
+
 function getAll() { return stats; }
 
-module.exports = { getStats, recordResult, getAll };
+function exportJSON() {
+  const obj = {};
+  for (const [k, v] of stats) obj[k] = v;
+  return JSON.stringify(obj, null, 2);
+}
+
+function importJSON(jsonStr) {
+  const obj = JSON.parse(jsonStr);
+  for (const [k, v] of Object.entries(obj)) stats.set(k, v);
+  save(stats);
+}
+
+module.exports = { getStats, recordResult, clearAll, getAll, exportJSON, importJSON };
