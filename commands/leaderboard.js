@@ -4,7 +4,7 @@ const { IMAGES, PURPLE } = require('../utils/theme');
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('leaderboard')
-    .setDescription('🏆 Top 10 flip leaderboard')
+    .setDescription('🏆 Flip leaderboard — biggest winners and losers')
     .addStringOption(o => o.setName('action').setDescription('Owner: clear all stats').setRequired(false)
       .addChoices({ name: '🗑️ Clear all stats', value: 'clear' })),
 
@@ -26,7 +26,10 @@ module.exports = {
     const all = getAll();
     const entries = Object.entries(all);
 
-    if (entries.length === 0) {
+    // Filter out players with zero activity
+    const active = entries.filter(([, s]) => s.wins > 0 || s.losses > 0 || s.pnl !== 0);
+
+    if (active.length === 0) {
       return interaction.reply({
         embeds: [new EmbedBuilder().setColor(PURPLE)
           .setDescription('No stats yet. Log defeats to build the leaderboard.')
@@ -34,30 +37,40 @@ module.exports = {
       });
     }
 
-    const sorted = entries.sort((a, b) => b[1].pnl - a[1].pnl).slice(0, 10);
-    const MEDALS = ['🥇', '🥈', '🥉'];
+    // Sort by P&L
+    const sorted = active.sort((a, b) => b[1].pnl - a[1].pnl);
 
-    const lines = sorted.map(([userId, s], i) => {
-      const pnlStr = (s.pnl >= 0 ? '+$' : '-$') + Math.abs(s.pnl).toFixed(2);
-      const medal  = MEDALS[i] ?? '`' + (i + 1) + '`';
-      const arrow  = s.pnl >= 0 ? '▲' : '▼';
-      return medal + '  <@' + userId + '>\n┕ ' + arrow + ' **' + pnlStr + '**  •  ' + s.wins + 'W ' + s.losses + 'L';
-    });
+    // Top 5 winners (positive pnl)
+    const winners = sorted.filter(([, s]) => s.pnl > 0).slice(0, 5);
+    // Top 5 losers (negative pnl, show worst first)
+    const losers  = sorted.filter(([, s]) => s.pnl < 0).slice(-5).reverse();
 
-    const top = sorted[0];
-    const bot = sorted[sorted.length - 1];
+    const MEDALS = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣'];
+
+    const winLines = winners.length > 0
+      ? winners.map(([userId, s], i) => {
+          const pnlStr = '+$' + Math.abs(s.pnl).toFixed(2);
+          return MEDALS[i] + '  <@' + userId + '>\n┕ ▲ **' + pnlStr + '**  •  ' + s.wins + 'W ' + s.losses + 'L';
+        }).join('\n\n')
+      : '*No winners yet*';
+
+    const loseLines = losers.length > 0
+      ? losers.map(([userId, s], i) => {
+          const pnlStr = '-$' + Math.abs(s.pnl).toFixed(2);
+          return MEDALS[i] + '  <@' + userId + '>\n┕ ▼ **' + pnlStr + '**  •  ' + s.wins + 'W ' + s.losses + 'L';
+        }).join('\n\n')
+      : '*No losers yet*';
 
     await interaction.reply({
       embeds: [new EmbedBuilder()
         .setColor(PURPLE)
         .setAuthor({ name: 'KONVAULT™  •  Flip Leaderboard', iconURL: IMAGES.logo })
         .setThumbnail(IMAGES.logo)
-        .setDescription(lines.join('\n\n'))
         .addFields(
-          { name: '📈 Most Up',   value: '<@' + top[0] + '>  **+$' + Math.abs(top[1].pnl).toFixed(2) + '**', inline: true },
-          { name: '📉 Most Down', value: '<@' + bot[0] + '>  **-$' + Math.abs(bot[1].pnl).toFixed(2) + '**', inline: true },
+          { name: '📈  Biggest Winners', value: winLines, inline: false },
+          { name: '📉  Biggest Losers',  value: loseLines, inline: false },
         )
-        .setFooter({ text: 'Top 10 by P&L  •  /stats @user for details', iconURL: IMAGES.logo })
+        .setFooter({ text: 'KONVAULT™  •  /stats @user for details', iconURL: IMAGES.logo })
         .setTimestamp()
       ]
     });
