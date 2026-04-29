@@ -63,7 +63,7 @@ module.exports = {
 
   data: new SlashCommandBuilder()
     .setName('stats')
-    .setDescription('📊 Check a player\'s wins, losses and P&L')
+    .setDescription('📊 Check your or another player\'s stats')
     .addUserOption(o => o
       .setName('user')
       .setDescription('Player to check — leave empty for your own stats')
@@ -95,10 +95,10 @@ module.exports = {
         .setAuthor({ name: target.displayName + '  •  Player Stats', iconURL: target.displayAvatarURL() })
         .setThumbnail(target.displayAvatarURL())
         .addFields(
-          { name: '💰 P&L',      value: '```' + pnlStr + '```',                        inline: true },
-          { name: '📊 Record',   value: '```' + s.wins + 'W  /  ' + s.losses + 'L```', inline: true },
-          { name: '🎯 Win Rate', value: '```' + winRate + '%```',                       inline: true },
-          { name: '🎮 Games',    value: '```' + total + '```',                          inline: true },
+          { name: '💰 P&L',      value: '```' + pnlStr + '```',                         inline: true },
+          { name: '📊 Record',   value: '```' + s.wins + 'W  /  ' + s.losses + 'L```',  inline: true },
+          { name: '🎯 Win Rate', value: '```' + winRate + '%```',                        inline: true },
+          { name: '🎮 Games',    value: '```' + total + '```',                           inline: true },
           { name: '📈 Status',   value: '```' + (up ? 'Profitable' : 'In the red') + '```', inline: true },
         )
         .setFooter({ text: 'KONVAULT™  •  Flip Stats', iconURL: IMAGES.logo })
