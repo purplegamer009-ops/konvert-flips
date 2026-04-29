@@ -4,23 +4,24 @@ const fs = require('fs');
 const path = require('path');
 
 const STATS_FILE = path.join('/tmp', 'konvault_stats.json');
+const stats = new Map();
 
-function load() {
-  try {
-    if (fs.existsSync(STATS_FILE)) return new Map(Object.entries(JSON.parse(fs.readFileSync(STATS_FILE, 'utf8'))));
-  } catch(e) {}
-  return new Map();
-}
+// Load on startup
+try {
+  if (fs.existsSync(STATS_FILE)) {
+    const obj = JSON.parse(fs.readFileSync(STATS_FILE, 'utf8'));
+    for (const [k, v] of Object.entries(obj)) stats.set(k, v);
+    console.log('✅ Stats loaded — ' + stats.size + ' players');
+  }
+} catch(e) { console.error('Stats load error:', e); }
 
-function save(stats) {
+function save() {
   try {
     const obj = {};
     for (const [k, v] of stats) obj[k] = v;
     fs.writeFileSync(STATS_FILE, JSON.stringify(obj, null, 2), 'utf8');
-  } catch(e) {}
+  } catch(e) { console.error('Stats save error:', e); }
 }
-
-const stats = load();
 
 function getStats(userId) {
   if (!stats.has(userId)) stats.set(userId, { wins: 0, losses: 0, pnl: 0 });
@@ -36,12 +37,12 @@ function recordResult(winnerId, loserId, amount) {
   l.pnl = parseFloat((l.pnl - amount).toFixed(2));
   stats.set(winnerId, w);
   stats.set(loserId, l);
-  save(stats);
+  save();
 }
 
 function clearAll() {
   stats.clear();
-  save(stats);
+  save();
 }
 
 function getAll() { return stats; }
@@ -55,7 +56,7 @@ function exportJSON() {
 function importJSON(jsonStr) {
   const obj = JSON.parse(jsonStr);
   for (const [k, v] of Object.entries(obj)) stats.set(k, v);
-  save(stats);
+  save();
 }
 
 module.exports = {
@@ -63,10 +64,10 @@ module.exports = {
 
   data: new SlashCommandBuilder()
     .setName('stats')
-    .setDescription('📊 Check your or another player\'s stats')
+    .setDescription('📊 Check your wins, losses and P&L')
     .addUserOption(o => o
       .setName('user')
-      .setDescription('Player to check — leave empty for your own stats')
+      .setDescription('Player to check — empty for your own stats')
       .setRequired(false)
     ),
 
@@ -76,11 +77,9 @@ module.exports = {
 
     if (s.wins === 0 && s.losses === 0) {
       return interaction.reply({
-        embeds: [new EmbedBuilder()
-          .setColor(PURPLE)
-          .setDescription('No recorded activity for <@' + target.id + '> yet.')
-          .setFooter({ text: 'KONVAULT™', iconURL: IMAGES.logo })
-        ]
+        embeds: [new EmbedBuilder().setColor(PURPLE)
+          .setDescription('📊 No recorded activity for <@' + target.id + '> yet.')
+          .setFooter({ text: 'KONVAULT™', iconURL: IMAGES.logo })]
       });
     }
 
