@@ -3,29 +3,29 @@ const { IMAGES, PURPLE } = require('../utils/theme');
 const fs = require('fs');
 const path = require('path');
 
-const STATS_FILE = path.join('/tmp', 'konvault_stats.json');
-const stats = new Map();
+const FILE = '/tmp/konvault_stats.json';
+let data = {};
 
-// Load on startup
-try {
-  if (fs.existsSync(STATS_FILE)) {
-    const obj = JSON.parse(fs.readFileSync(STATS_FILE, 'utf8'));
-    for (const [k, v] of Object.entries(obj)) stats.set(k, v);
-    console.log('✅ Stats loaded — ' + stats.size + ' players');
-  }
-} catch(e) { console.error('Stats load error:', e); }
-
-function save() {
+// Load immediately when module is first required
+function loadFromDisk() {
   try {
-    const obj = {};
-    for (const [k, v] of stats) obj[k] = v;
-    fs.writeFileSync(STATS_FILE, JSON.stringify(obj, null, 2), 'utf8');
-  } catch(e) { console.error('Stats save error:', e); }
+    if (fs.existsSync(FILE)) {
+      data = JSON.parse(fs.readFileSync(FILE, 'utf8'));
+      console.log('[Stats] Loaded ' + Object.keys(data).length + ' players from disk');
+    }
+  } catch(e) { console.error('[Stats] Load error:', e.message); }
 }
 
+function saveToDisk() {
+  try { fs.writeFileSync(FILE, JSON.stringify(data, null, 2), 'utf8'); }
+  catch(e) { console.error('[Stats] Save error:', e.message); }
+}
+
+loadFromDisk();
+
 function getStats(userId) {
-  if (!stats.has(userId)) stats.set(userId, { wins: 0, losses: 0, pnl: 0 });
-  return stats.get(userId);
+  if (!data[userId]) data[userId] = { wins: 0, losses: 0, pnl: 0 };
+  return data[userId];
 }
 
 function recordResult(winnerId, loserId, amount) {
@@ -35,41 +35,26 @@ function recordResult(winnerId, loserId, amount) {
   w.pnl = parseFloat((w.pnl + amount).toFixed(2));
   l.losses++;
   l.pnl = parseFloat((l.pnl - amount).toFixed(2));
-  stats.set(winnerId, w);
-  stats.set(loserId, l);
-  save();
+  saveToDisk();
+  console.log('[Stats] Recorded: winner=' + winnerId + ' loser=' + loserId + ' amount=$' + amount);
 }
 
 function clearAll() {
-  stats.clear();
-  save();
+  data = {};
+  saveToDisk();
 }
 
-function getAll() { return stats; }
-
-function exportJSON() {
-  const obj = {};
-  for (const [k, v] of stats) obj[k] = v;
-  return JSON.stringify(obj, null, 2);
-}
-
-function importJSON(jsonStr) {
-  const obj = JSON.parse(jsonStr);
-  for (const [k, v] of Object.entries(obj)) stats.set(k, v);
-  save();
-}
+function getAll() { return data; }
+function exportJSON() { return JSON.stringify(data, null, 2); }
+function importJSON(str) { data = JSON.parse(str); saveToDisk(); }
 
 module.exports = {
   getStats, recordResult, clearAll, getAll, exportJSON, importJSON,
 
   data: new SlashCommandBuilder()
     .setName('stats')
-    .setDescription('📊 Check your wins, losses and P&L')
-    .addUserOption(o => o
-      .setName('user')
-      .setDescription('Player to check — empty for your own stats')
-      .setRequired(false)
-    ),
+    .setDescription('📊 Check your stats')
+    .addUserOption(o => o.setName('user').setDescription('Player to check (empty = you)').setRequired(false)),
 
   async execute(interaction) {
     const target = interaction.options.getUser('user') ?? interaction.user;
@@ -78,7 +63,7 @@ module.exports = {
     if (s.wins === 0 && s.losses === 0) {
       return interaction.reply({
         embeds: [new EmbedBuilder().setColor(PURPLE)
-          .setDescription('📊 No recorded activity for <@' + target.id + '> yet.')
+          .setDescription('No recorded activity for <@' + target.id + '> yet.')
           .setFooter({ text: 'KONVAULT™', iconURL: IMAGES.logo })]
       });
     }
@@ -91,16 +76,16 @@ module.exports = {
     return interaction.reply({
       embeds: [new EmbedBuilder()
         .setColor(up ? 0x00E676 : 0xFF1744)
-        .setAuthor({ name: target.displayName + '  •  Player Stats', iconURL: target.displayAvatarURL() })
+        .setAuthor({ name: target.displayName + '  •  Flip Stats', iconURL: target.displayAvatarURL() })
         .setThumbnail(target.displayAvatarURL())
         .addFields(
-          { name: '💰 P&L',      value: '```' + pnlStr + '```',                         inline: true },
-          { name: '📊 Record',   value: '```' + s.wins + 'W  /  ' + s.losses + 'L```',  inline: true },
-          { name: '🎯 Win Rate', value: '```' + winRate + '%```',                        inline: true },
-          { name: '🎮 Games',    value: '```' + total + '```',                           inline: true },
-          { name: '📈 Status',   value: '```' + (up ? 'Profitable' : 'In the red') + '```', inline: true },
+          { name: '💰 P&L',      value: '```' + pnlStr + '```',                        inline: true },
+          { name: '📊 Record',   value: '```' + s.wins + 'W / ' + s.losses + 'L```',   inline: true },
+          { name: '🎯 Win Rate', value: '```' + winRate + '%```',                       inline: true },
+          { name: '🎮 Games',    value: '```' + total + '```',                          inline: true },
+          { name: '📈 Status',   value: '```' + (up ? 'Profitable ▲' : 'In the red ▼') + '```', inline: true },
         )
-        .setFooter({ text: 'KONVAULT™  •  Flip Stats', iconURL: IMAGES.logo })
+        .setFooter({ text: 'KONVAULT™', iconURL: IMAGES.logo })
         .setTimestamp()
       ]
     });
