@@ -1,19 +1,47 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const { IMAGES, PURPLE } = require('../utils/theme');
-const { getAll } = require('./stats');
+
+// Import directly from stats.js in same folder
+const { getAll, clearAll } = require('./stats');
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('leaderboard')
-    .setDescription('🏆 View the top 10 flip leaderboard'),
+    .setDescription('🏆 View the top 10 flip leaderboard')
+    .addStringOption(o => o
+      .setName('action')
+      .setDescription('Owner: clear the leaderboard')
+      .setRequired(false)
+      .addChoices({ name: '🗑️ Clear all stats', value: 'clear' })
+    ),
 
   async execute(interaction) {
+    const action = interaction.options.getString('action');
+
+    if (action === 'clear') {
+      if (interaction.user.id !== process.env.OWNER_ID) {
+        return interaction.reply({ content: '🚫 Owner only.', ephemeral: true });
+      }
+      clearAll();
+      return interaction.reply({
+        embeds: [new EmbedBuilder()
+          .setColor(0xFF1744)
+          .setTitle('🗑️  Leaderboard Wiped')
+          .setDescription('All stats have been cleared.')
+          .setFooter({ text: 'KONVAULT™', iconURL: IMAGES.logo })
+          .setTimestamp()
+        ], ephemeral: true
+      });
+    }
+
     const all = getAll();
     if (all.size === 0) {
       return interaction.reply({
-        embeds: [new EmbedBuilder().setColor(PURPLE)
+        embeds: [new EmbedBuilder()
+          .setColor(PURPLE)
           .setDescription('No stats recorded yet.')
-          .setFooter({ text: 'KONVAULT™', iconURL: IMAGES.logo })]
+          .setFooter({ text: 'KONVAULT™', iconURL: IMAGES.logo })
+        ]
       });
     }
 
