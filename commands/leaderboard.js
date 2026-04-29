@@ -1,21 +1,21 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const { IMAGES, PURPLE } = require('../utils/theme');
 
-// Import directly from stats.js in same folder
-const { getAll, clearAll } = require('./stats');
-
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('leaderboard')
-    .setDescription('🏆 View the top 10 flip leaderboard')
+    .setDescription('🏆 Top 10 flip leaderboard')
     .addStringOption(o => o
       .setName('action')
-      .setDescription('Owner: clear the leaderboard')
+      .setDescription('Owner: clear all stats')
       .setRequired(false)
       .addChoices({ name: '🗑️ Clear all stats', value: 'clear' })
     ),
 
   async execute(interaction) {
+    // Import here to avoid any load-order issues
+    const { getAll, clearAll } = require('./stats');
+
     const action = interaction.options.getString('action');
 
     if (action === 'clear') {
@@ -24,10 +24,9 @@ module.exports = {
       }
       clearAll();
       return interaction.reply({
-        embeds: [new EmbedBuilder()
-          .setColor(0xFF1744)
+        embeds: [new EmbedBuilder().setColor(0xFF1744)
           .setTitle('🗑️  Leaderboard Wiped')
-          .setDescription('All stats have been cleared.')
+          .setDescription('All stats cleared.')
           .setFooter({ text: 'KONVAULT™', iconURL: IMAGES.logo })
           .setTimestamp()
         ], ephemeral: true
@@ -37,14 +36,13 @@ module.exports = {
     const all = getAll();
     if (all.size === 0) {
       return interaction.reply({
-        embeds: [new EmbedBuilder()
-          .setColor(PURPLE)
-          .setDescription('No stats recorded yet.')
-          .setFooter({ text: 'KONVAULT™', iconURL: IMAGES.logo })
-        ]
+        embeds: [new EmbedBuilder().setColor(PURPLE)
+          .setDescription('No stats yet. Log results using the defeats tracker.')
+          .setFooter({ text: 'KONVAULT™', iconURL: IMAGES.logo })]
       });
     }
 
+    // Top 10 only, sorted by P&L
     const sorted = [...all.entries()]
       .sort((a, b) => b[1].pnl - a[1].pnl)
       .slice(0, 10);
@@ -53,8 +51,8 @@ module.exports = {
     const lines = sorted.map(([userId, s], i) => {
       const pnlStr = (s.pnl >= 0 ? '+$' : '-$') + Math.abs(s.pnl).toFixed(2);
       const medal  = MEDALS[i] ?? '`' + (i + 1) + '`';
-      const bar    = s.pnl >= 0 ? '▲' : '▼';
-      return medal + '  <@' + userId + '>\n┕ ' + bar + ' **' + pnlStr + '**  •  ' + s.wins + 'W ' + s.losses + 'L';
+      const arrow  = s.pnl >= 0 ? '▲' : '▼';
+      return medal + '  <@' + userId + '>\n┕ ' + arrow + ' **' + pnlStr + '**  •  ' + s.wins + 'W ' + s.losses + 'L';
     });
 
     const top = sorted[0];
@@ -67,8 +65,8 @@ module.exports = {
         .setThumbnail(IMAGES.logo)
         .setDescription(lines.join('\n\n'))
         .addFields(
-          { name: '📈 Biggest Winner', value: '<@' + top[0] + '>  **+$' + Math.abs(top[1].pnl).toFixed(2) + '**', inline: true },
-          { name: '📉 Biggest Loser',  value: '<@' + bot[0] + '>  **-$' + Math.abs(bot[1].pnl).toFixed(2) + '**', inline: true },
+          { name: '📈 Most Up',   value: '<@' + top[0] + '>  **+$' + Math.abs(top[1].pnl).toFixed(2) + '**', inline: true },
+          { name: '📉 Most Down', value: '<@' + bot[0] + '>  **-$' + Math.abs(bot[1].pnl).toFixed(2) + '**', inline: true },
         )
         .setFooter({ text: 'Top 10 by P&L  •  /stats @user for details', iconURL: IMAGES.logo })
         .setTimestamp()
