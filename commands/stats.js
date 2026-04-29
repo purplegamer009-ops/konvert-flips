@@ -63,116 +63,45 @@ module.exports = {
 
   data: new SlashCommandBuilder()
     .setName('stats')
-    .setDescription('📊 Leaderboard and player stats')
-    .addSubcommand(s => s
-      .setName('check')
-      .setDescription('View leaderboard or a specific player')
-      .addUserOption(o => o.setName('user').setDescription('Player to check — leave empty for leaderboard').setRequired(false))
-    )
-    .addSubcommand(s => s
-      .setName('clear')
-      .setDescription('🗑️ Owner only — wipe all stats')
+    .setDescription('📊 Check a player\'s wins, losses and P&L')
+    .addUserOption(o => o
+      .setName('user')
+      .setDescription('Player to check — leave empty for your own stats')
+      .setRequired(false)
     ),
 
   async execute(interaction) {
-    const sub = interaction.options.getSubcommand();
+    const target = interaction.options.getUser('user') ?? interaction.user;
+    const s = getStats(target.id);
 
-    // ── CLEAR ──────────────────────────────────────────────
-    if (sub === 'clear') {
-      if (interaction.user.id !== process.env.OWNER_ID) {
-        return interaction.reply({ content: '🚫 Owner only.', ephemeral: true });
-      }
-      clearAll();
-      return interaction.reply({
-        embeds: [new EmbedBuilder()
-          .setColor(0xFF1744)
-          .setTitle('🗑️  Leaderboard Wiped')
-          .setDescription('All stats have been cleared.')
-          .setFooter({ text: 'KONVAULT™', iconURL: IMAGES.logo })
-          .setTimestamp()
-        ],
-        ephemeral: true,
-      });
-    }
-
-    // ── SINGLE USER ────────────────────────────────────────
-    const target = interaction.options.getUser('user');
-
-    if (target) {
-      const s = getStats(target.id);
-      if (s.wins === 0 && s.losses === 0) {
-        return interaction.reply({
-          embeds: [new EmbedBuilder()
-            .setColor(PURPLE)
-            .setDescription('No recorded activity for <@' + target.id + '> yet.')
-            .setFooter({ text: 'KONVAULT™', iconURL: IMAGES.logo })
-          ]
-        });
-      }
-      const total   = s.wins + s.losses;
-      const winRate = total > 0 ? ((s.wins / total) * 100).toFixed(1) : '0';
-      const up      = s.pnl >= 0;
-      const pnlStr  = (up ? '+$' : '-$') + Math.abs(s.pnl).toFixed(2);
-      const streak  = up ? '📈 Profitable' : '📉 In the red';
-
-      return interaction.reply({
-        embeds: [new EmbedBuilder()
-          .setColor(up ? 0x00E676 : 0xFF1744)
-          .setAuthor({ name: target.displayName + '  •  Player Stats', iconURL: target.displayAvatarURL() })
-          .setThumbnail(target.displayAvatarURL())
-          .addFields(
-            { name: '💰 P&L',     value: '```' + pnlStr + '```',                          inline: true  },
-            { name: '📊 Record',  value: '```' + s.wins + 'W  /  ' + s.losses + 'L```',   inline: true  },
-            { name: '🎯 Win Rate',value: '```' + winRate + '%```',                         inline: true  },
-            { name: '🎮 Games',   value: '```' + total + '```',                            inline: true  },
-            { name: '📈 Status',  value: '```' + streak + '```',                           inline: true  },
-          )
-          .setFooter({ text: 'KONVAULT™  •  Flip Stats', iconURL: IMAGES.logo })
-          .setTimestamp()
-        ]
-      });
-    }
-
-    // ── LEADERBOARD ────────────────────────────────────────
-    const all = getAll();
-    if (all.size === 0) {
+    if (s.wins === 0 && s.losses === 0) {
       return interaction.reply({
         embeds: [new EmbedBuilder()
           .setColor(PURPLE)
-          .setDescription('No stats recorded yet.')
+          .setDescription('No recorded activity for <@' + target.id + '> yet.')
           .setFooter({ text: 'KONVAULT™', iconURL: IMAGES.logo })
         ]
       });
     }
 
-    // Top 10 by P&L only
-    const sorted = [...all.entries()]
-      .sort((a, b) => b[1].pnl - a[1].pnl)
-      .slice(0, 10);
+    const total   = s.wins + s.losses;
+    const winRate = total > 0 ? ((s.wins / total) * 100).toFixed(1) : '0';
+    const up      = s.pnl >= 0;
+    const pnlStr  = (up ? '+$' : '-$') + Math.abs(s.pnl).toFixed(2);
 
-    const MEDALS = ['🥇', '🥈', '🥉'];
-    const lines = sorted.map(([userId, s], i) => {
-      const pnlStr = (s.pnl >= 0 ? '+$' : '-$') + Math.abs(s.pnl).toFixed(2);
-      const medal  = MEDALS[i] ?? '`' + (i + 1) + '`';
-      const bar    = s.pnl >= 0 ? '▲' : '▼';
-      return medal + '  <@' + userId + '>\n' +
-             '┕ ' + bar + ' **' + pnlStr + '**  •  ' + s.wins + 'W ' + s.losses + 'L';
-    });
-
-    const top = sorted[0];
-    const bot = sorted[sorted.length - 1];
-
-    await interaction.reply({
+    return interaction.reply({
       embeds: [new EmbedBuilder()
-        .setColor(PURPLE)
-        .setAuthor({ name: 'KONVAULT™  •  Flip Leaderboard', iconURL: IMAGES.logo })
-        .setThumbnail(IMAGES.logo)
-        .setDescription(lines.join('\n\n'))
+        .setColor(up ? 0x00E676 : 0xFF1744)
+        .setAuthor({ name: target.displayName + '  •  Player Stats', iconURL: target.displayAvatarURL() })
+        .setThumbnail(target.displayAvatarURL())
         .addFields(
-          { name: '📈 Biggest Winner', value: '<@' + top[0] + '>  **+$' + Math.abs(top[1].pnl).toFixed(2) + '**', inline: true },
-          { name: '📉 Biggest Loser',  value: '<@' + bot[0] + '>  **-$' + Math.abs(bot[1].pnl).toFixed(2) + '**', inline: true },
+          { name: '💰 P&L',      value: '```' + pnlStr + '```',                        inline: true },
+          { name: '📊 Record',   value: '```' + s.wins + 'W  /  ' + s.losses + 'L```', inline: true },
+          { name: '🎯 Win Rate', value: '```' + winRate + '%```',                       inline: true },
+          { name: '🎮 Games',    value: '```' + total + '```',                          inline: true },
+          { name: '📈 Status',   value: '```' + (up ? 'Profitable' : 'In the red') + '```', inline: true },
         )
-        .setFooter({ text: 'Top 10 by P&L  •  /stats check @user for details', iconURL: IMAGES.logo })
+        .setFooter({ text: 'KONVAULT™  •  Flip Stats', iconURL: IMAGES.logo })
         .setTimestamp()
       ]
     });
